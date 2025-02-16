@@ -78,12 +78,21 @@ docker_containers(){
 }
 
 docker_containers_run() {
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
+        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name>"
+        return 1
+    fi
+    sudo docker run -d -p "$2:$1" --name "$4" "$3"
+}
+
+docker_containers_run_in_network() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]; then
         echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name> <network>"
         return 1
     fi
-    sudo docker run -d -p "$2:$1" --name "$4" "$3" --network $5
+    sudo docker run --network $5 -p "$2:$1" --name "$4" "$3"
 }
+
 
 docker_containers_run_always() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]; then
