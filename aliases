@@ -90,7 +90,10 @@ docker_containers_run_in_network() {
         echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name> <network>"
         return 1
     fi
-    sudo docker run --network $5 -p "$2:$1" --name "$4" "$3"
+
+    CUSTOM_URL="$5"  # Set the custom URL to the 5th parameter (network name)
+    
+    sudo docker run --network "$5" -p "$2:$1" --name "$4" -e CUSTOM_URL="$CUSTOM_URL" "$3"
 }
 
 
