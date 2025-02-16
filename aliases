@@ -1,3 +1,4 @@
+#UP
 linux_version() {
     cat /etc/os-release
 }
@@ -6,12 +7,70 @@ ssh_iniciar() {
     eval "$(ssh-agent -s)"
 }
 
+
 ssh_activar() {
     if [ -z "$1" ]; then
-        echo "Usage: ssh_activar <key_name>"
+        echo "Usage: ssh_activar <key_filename>"
         return 1
     fi
     ssh-add ~/.ssh/"$1"
+}
+
+docker_networks(){
+    sudo docker network ls
+
+}
+
+docker_networks_create(){
+    if [ -z "$1" ]; then
+        echo "Usage: cdocker_networks_create <network_name>"
+        return 1
+    fi
+
+    NETWORK_NAME="$1"
+
+    if sudo docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+        echo "Network '$NETWORK_NAME' already exists."
+    else
+        sudo docker network create "$NETWORK_NAME"
+        echo "Network '$NETWORK_NAME' created successfully."
+    fi
+}
+
+docker_networks_delete(){
+        if [ -z "$1" ]; then
+        echo "Usage: docker_networks_delete <network_name | all>"
+        return 1
+    fi
+
+    NETWORK_NAME="$1"
+
+    if [ "$NETWORK_NAME" == "all" ]; then
+        echo "Deleting all user-defined Docker networks..."
+        # List all user-defined networks (excluding 'bridge', 'host', 'none') and delete them
+        for net in $(sudo docker network ls --format "{{.Name}}" --filter "driver=bridge"); do
+            if [[ "$net" != "bridge" && "$net" != "host" && "$net" != "none" ]]; then
+                echo "Deleting network: $net"
+                sudo docker network rm "$net"
+            fi
+        done
+        echo "All user-defined networks deleted successfully."
+    else
+        # Check if the specific network exists
+        if sudo docker network inspect "$NETWORK_NAME" >/dev/null 2>&1; then
+            # Check if any containers are connected to the network
+            if [ "$(sudo docker network inspect --format='{{range .Containers}}{{.Name}} {{end}}' "$NETWORK_NAME")" ]; then
+                echo "Error: Network '$NETWORK_NAME' has active containers. Remove them first."
+                return 1
+            fi
+
+            # Remove the network
+            sudo docker network rm "$NETWORK_NAME"
+            echo "Network '$NETWORK_NAME' deleted successfully."
+        else
+            echo "Network '$NETWORK_NAME' does not exist."
+        fi
+    fi
 }
 
 docker_containers(){
@@ -19,22 +78,31 @@ docker_containers(){
 }
 
 docker_containers_run() {
-    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name>"
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]; then
+        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name> <network>"
         return 1
     fi
-    sudo docker run -d -p "$2:$1" --name "$4" "$3"
+    sudo docker run -d -p "$2:$1" --name "$4" "$3" --network $5
 }
 
 docker_containers_run_always() {
-    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name>"
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]; then
+        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name> <network>"
         return 1
     fi
-    sudo docker run -dp "$2:$1" --name "$4" -w /app -v "$(pwd):/app" "$3"
+    sudo docker run -dp "$2:$1"  --network $5 --name "$4" -w /app -v "$(pwd):/app" "$3"
 }
 
 
+docker_containers_start() {
+    if [ "$1" == "all" ]; then
+        echo "Starting all stopped containers..."
+        sudo docker start $(sudo docker ps -aq)
+    else
+        echo "Starting container: $1"
+        sudo docker start "$1"
+    fi
+}
 
 docker_containers_stop() {
     if [ -z "$1" ]; then
@@ -84,6 +152,19 @@ docker_images_delete() {
         sudo docker rmi $(sudo docker images -q)
     else
         sudo docker rmi "$1"
+    fi
+}
+
+docker_images_delete_forced() {
+    if [ -z "$1" ]; then
+        echo "Usage: docker_delete_image <image_name_or_id> | all"
+        return 1
+    fi
+
+    if [ "$1" = "all" ]; then
+        sudo docker rmi -f $(sudo docker images -q)
+    else
+        sudo docker rmi -f "$1"
     fi
 }
 
