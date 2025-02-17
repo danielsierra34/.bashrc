@@ -25,7 +25,6 @@ git_email() {
     echo "Correo de Git configurado como: $1"
 }
 
-# Función para configurar el nombre de Git
 git_name() {
     if [ -z "$1" ]; then
         echo "Uso: git_set_name \"Tu Nombre\""
