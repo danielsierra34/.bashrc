@@ -1,4 +1,4 @@
-#UP
+#UPa
 linux_version() {
     cat /etc/os-release
 }
