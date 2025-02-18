@@ -11,7 +11,10 @@ ssh_zip() {
     sudo tar -czvf "$1".tgz "$1"/
 }
 
-
+function flask_run() {
+    clear
+    flask run
+}
 
 port_check() {
     sudo lsof -i :"$1"
