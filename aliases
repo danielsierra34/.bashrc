@@ -3,6 +3,14 @@ linux_version() {
     cat /etc/os-release
 }
 
+port_check() {
+    sudo lsof -i :"$1"
+}
+
+port_kill() {
+    sudo kill -9 "$1"
+}
+
 ssh_iniciar() {
     eval "$(ssh-agent -s)"
 }
