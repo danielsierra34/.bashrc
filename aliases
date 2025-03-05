@@ -165,7 +165,7 @@ docker_containers_start() {
 
 docker_containers_stop() {
     if [ -z "$1" ]; then
-        echo "Usage: docker_stop <container_name_or_id> | all"
+        echo "Usage: docker_containers_stop <container_name_or_id> | all"
         return 1
     fi
 
@@ -173,6 +173,19 @@ docker_containers_stop() {
         sudo docker stop $(sudo docker ps -q)
     else
         sudo docker stop "$1"
+    fi
+}
+
+docker_containers_restart() {
+    if [ -z "$1" ]; then
+        echo "Usage: docker_containers_restart <container_name_or_id> | all"
+        return 1
+    fi
+
+    if [ "$1" = "all" ]; then
+        sudo docker restart $(sudo docker ps -q)
+    else
+        sudo docker restart "$1"
     fi
 }
 
