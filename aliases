@@ -220,6 +220,19 @@ docker_images_delete_forced() {
     fi
 }
 
+docker_images_compose() {
+    sudo docker compose up
+}
+
+docker_images_compose_forced() {
+    if [ -z "$1" ]; then
+        echo "Usage: docker_images_compose_forced <service_name>"
+        return 1
+    fi
+    sudo docker compose up --build --force-recreate --no-deps "$1"
+}
+
+
 docker_install() {
     sudo apt-get update
     sudo apt-get install -y ca-certificates curl
