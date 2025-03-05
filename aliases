@@ -138,10 +138,12 @@ docker_containers_run_in_network() {
 
 docker_containers_run_always() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name> <network>"
+        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name>"
         return 1
     fi
-    sudo docker run -dp "$2:$1" --name "$4" -w /app -v "$(pwd):/app" "$3"
+    sudo docker run -dp "$2":"$1" --name "$4" -w /app -v "$(pwd):/app" "$3"
+
+
 }
 
 docker_containers_run_always_in_network() {
