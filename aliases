@@ -204,6 +204,14 @@ docker_containers_delete() {
     fi
 }
 
+docker_containers_logs(){
+    if [ -z "$1" ]; then
+        echo "Usage: docker_containers_logs <container_name_or_id>"
+        return 1
+    fi
+    sudo docker logs -f "$1"
+}
+
 docker_images(){
     sudo docker images
 }
