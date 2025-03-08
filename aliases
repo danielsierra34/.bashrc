@@ -16,6 +16,13 @@ function flask_run() {
     flask run
 }
 
+function flask_restart(){
+    clear    
+    sudo rm *.sqlite
+    flask run
+}
+
+
 port_check() {
     sudo lsof -i :"$1"
 }
