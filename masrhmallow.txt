@@ -1,1 +1,425 @@
+from marshmallow import Schema, fields, validate, ValidationError, Length, Range, EXCLUDE, INCLUDE, RAISE
 
+1. Schema: Define la estructura de los datos. Un Schema es una clase que define cómo se deben serializar y deserializar los datos. Se usa para validar y transformar los datos entre formatos como JSON y objetos de Python.
+2. fields: Representan los atributos de los datos. Los fields especifican los tipos de datos y reglas de validación.
+
+id = fields.Int()       # Número entero
+name = fields.Str()     # Cadena de texto
+email = fields.Email()  # Valida que sea un correo
+price = fields.Float()  # Número decimal
+date = fields.Date()    # Solo fecha
+time = fields.Time()    # Solo hora
+dt = fields.DateTime()  # Fecha y hora completa
+bool_field = fields.Boolean()  # Booleano
+uuid = fields.UUID()  # Identificador único
+tags = fields.List(fields.Str())  # Lista de cadenas de texto
+metadata = fields.Dict()  # Diccionario
+
+from marshmallow import Schema, fields
+
+class UserSchema(Schema):
+    id = fields.Int()
+    name = fields.Str()
+    email = fields.Email()
+    created_at = fields.DateTime()
+    store = fields.Nested(StoreSchema)  # Un solo objeto Store
+    stores = fields.Nested(StoreSchema, many=True)  # Lista de objetos Store
+    name = fields.Str(validate=Length(min=2, max=50))
+    age = fields.Int(validate=Range(min=18, max=99))
+    age = fields.Int(required=True, error_messages={"required": "La edad es obligatoria."})
+    category = fields.Str(metadata={"description": "Categoría del producto"})
+    store = fields.Nested(StoreSchema, exclude=("created_at",))
+    store = fields.Nested(StoreSchema, only=("id", "name"))
+
+
+
+
+Opciones:
+  el campo solo se utilizará al cargar (deserializar) datos de entrada y no aparecerá en la salida
+  store_id = fields.Int(load_only=True)   
+
+  el campo solo se utilizará al serializar datos de salida y no se podrá proporcionar al cargar datos de entrada.
+  store = fields.Int(dump_only=True)
+
+  default: Asigna un valor por defecto si no se proporciona uno.
+  default="Sin nombre" 
+
+  missing: Similar a default, pero solo se usa en la deserialización.
+  price = fields.Float(missing=0.0)
+
+  validate: Se usa para definir reglas de validación.
+  age = fields.Int(validate=lambda n: n > 0)  # Solo permite valores positivos
+
+  allow_none: Permite que el campo tenga un valor None.
+  description = fields.String(allow_none=True)
+
+  example: Permite definir un valor de ejemplo para la documentación.
+  email = fields.Email(example="user@example.com")
+
+  Hace que el campo sea obligatorio en la deserialización.
+  name = fields.Str(required=True)
+
+
+personalizaciones
+
+  def validate_even(value):
+    if value % 2 != 0:
+        raise ValidationError("El número debe ser par.")
+
+  class NumberSchema(Schema):
+      number = fields.Int(validate=validate_even)
+  
+  schema = NumberSchema()
+  errors = schema.validate({"number": 3})
+  print(errors)
+
+class UserSchema(Schema):
+    name = fields.Str()
+
+    @pre_load
+    def clean_name(self, data, **kwargs):
+        data["name"] = data["name"].strip().title()
+        return data
+
+schema = UserSchema()
+result = schema.load({"name": "  juan pérez  "})
+print(result)  # {'name': 'Juan Pérez'}
+
+class ProductSchema(Schema):
+    name = fields.Str()
+    price = fields.Float()
+
+    @post_dump
+    def format_price(self, data, **kwargs):
+        data["price"] = f"${data['price']:.2f}"
+        return data
+
+schema = ProductSchema()
+result = schema.dump({"name": "Laptop", "price": 1299.99})
+print(result)  # {'name': 'Laptop', 'price': '$1299.99'}
+
+
+
+
+required	Hace que el campo sea obligatorio	name = fields.Str(required=True)
+allow_none	Permite valores None	description = fields.Str(allow_none=True)
+default	Valor por defecto	price = fields.Float(default=0.0)
+missing	Valor por defecto en deserialización	quantity = fields.Int(missing=1)
+validate	Valida valores con reglas	age = fields.Int(validate=fields.validate.Range(min=18))
+error_messages	Personaliza errores	email = fields.Email(error_messages={"invalid": "Correo inválido"})
+example	Define un ejemplo	email = fields.Email(example="user@example.com")
+
+
+EXCLUDE: Ignora las claves desconocidas.
+INCLUDE: Mantiene las claves desconocidas en los datos.
+RAISE: Lanza un error si hay claves desconocidas.
+
+class UserSchema(Schema):
+    name = fields.Str()
+    
+    class Meta:
+        unknown = EXCLUDE  # Cambia a INCLUDE o RAISE según lo que necesites
+
+schema = UserSchema()
+result = schema.load({"name": "Juan", "extra_field": "Ignorado"})
+print(result)
+
+
+################################################################################
+from marshmallow import Schema, fields, validate, EXCLUDE, INCLUDE, RAISE, pre_load, post_load, pre_dump, post_dump
+import simplejson
+from datetime import datetime
+
+# 🏢 Subesquema para datos anidados (Ej: Tienda)
+class StoreSchema(Schema):
+    id = fields.Int(required=True)
+    name = fields.Str(required=True, validate=validate.Length(min=3, max=50))
+
+# 👤 Esquema Principal con TODAS las opciones
+class UserSchema(Schema):
+    # 🔹 Campos básicos
+    id = fields.Int(dump_only=True)  # Se muestra, pero no se carga
+    name = fields.Str(required=True, validate=validate.Length(min=2, max=100))
+    email = fields.Email(required=True)
+    password = fields.Str(load_only=True, validate=validate.Length(min=8))  # Solo para carga
+    age = fields.Int(validate=validate.Range(min=18, max=100))  # Solo permite entre 18 y 100 años
+    active = fields.Bool(default=True)  # Campo booleano con valor por defecto
+    balance = fields.Float(default=0.0)  # Valor flotante con valor inicial
+    created_at = fields.DateTime(dump_only=True, format="%Y-%m-%d %H:%M:%S")  # Fecha formateada
+
+    # 🔹 Listas y Tuplas
+    tags = fields.List(fields.Str(), validate=validate.Length(max=5))  # Máximo 5 etiquetas
+    coordinates = fields.Tuple((fields.Float(), fields.Float()))  # Tupla con latitud/longitud
+
+    # 🔹 Campos anidados
+    store = fields.Nested(StoreSchema)  # Un solo objeto
+    stores = fields.List(fields.Nested(StoreSchema))  # Lista de objetos anidados
+
+    # 🔹 Extraer solo un campo de un esquema anidado
+    store_name = fields.Pluck(StoreSchema, "name")
+
+    # 🔹 Validaciones avanzadas
+    role = fields.Str(validate=validate.OneOf(["admin", "user", "guest"]))  # Solo permite estos valores
+    preferences = fields.Dict(keys=fields.Str(), values=fields.Raw())  # Diccionario dinámico
+
+    class Meta:
+        fields = ("id", "name", "email", "age", "active", "balance", "created_at", 
+                  "tags", "coordinates", "store", "stores", "store_name", "role", "preferences")
+        exclude = ("password",)  # Excluye explícitamente "password"
+        ordered = True  # Mantiene el orden de los campos
+        unknown = EXCLUDE  # Ignora campos desconocidos
+        datetimeformat = "%Y-%m-%d %H:%M:%S"  # Formato para fechas
+        render_module = simplejson  # Usa `simplejson` en vez de `json`
+        index_errors = True  # Muestra errores con índices en listas
+
+    # 🔹 Métodos de transformación de datos
+    @pre_load
+    def process_input(self, data, **kwargs):
+        """ Convierte strings a minúsculas antes de la carga """
+        if "name" in data:
+            data["name"] = data["name"].strip().lower()
+        return data
+
+    @post_load
+    def create_user(self, data, **kwargs):
+        """ Convierte datos en un objeto después de cargar """
+        data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return data
+
+    @pre_dump
+    def before_dump(self, data, **kwargs):
+        """ Modifica datos antes de la serialización """
+        data["name"] = data["name"].title()  # Capitaliza el nombre
+        return data
+
+    @post_dump
+    def after_dump(self, data, **kwargs):
+        """ Modifica datos después de la serialización """
+        data["serialized_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        return data
+
+# 📌 Ejemplo de uso
+input_data = {
+    "id": 1,
+    "name": " ana lópez ",
+    "email": "ana@example.com",
+    "password": "secreto123",
+    "age": 25,
+    "active": True,
+    "balance": 100.5,
+    "tags": ["vip", "cliente frecuente"],
+    "coordinates": (4.6097, -74.0817),  # Bogotá
+    "store": {"id": 101, "name": "Tienda Principal"},
+    "stores": [
+        {"id": 102, "name": "Sucursal Norte"},
+        {"id": 103, "name": "Sucursal Sur"}
+    ],
+    "role": "admin",
+    "preferences": {"theme": "dark", "notifications": True},
+    "extra_field": "No debería estar aquí"  # 🚫 Se ignorará por `unknown=EXCLUDE`
+}
+
+# 🔥 Crear instancia del esquema
+schema = UserSchema()
+
+# 🟢 **Deserializar (`load`)**
+deserialized_data = schema.load(input_data)
+print("🔹 Datos deserializados:", deserialized_data)
+
+# 🔵 **Serializar (`dump`)**
+serialized_data = schema.dumps(deserialized_data, indent=4)
+print("🔹 JSON serializado:", serialized_data)
+###############################################################################
+
+Datos Deserializados (load)
+python
+Copiar
+Editar
+{
+    "id": 1,
+    "name": "ana lópez",
+    "email": "ana@example.com",
+    "age": 25,
+    "active": True,
+    "balance": 100.5,
+    "tags": ["vip", "cliente frecuente"],
+    "coordinates": (4.6097, -74.0817),
+    "store": {"id": 101, "name": "Tienda Principal"},
+    "stores": [{"id": 102, "name": "Sucursal Norte"}, {"id": 103, "name": "Sucursal Sur"}],
+    "role": "admin",
+    "preferences": {"theme": "dark", "notifications": True},
+    "created_at": "2025-03-09 14:30:00"
+}
+🔹 JSON Serializado (dump)
+json
+Copiar
+Editar
+{
+    "id": 1,
+    "name": "Ana López",
+    "email": "ana@example.com",
+    "created_at": "2025-03-09 14:30:00",
+    "serialized_at": "2025-03-09 14:30:00"
+}
+
+
+#############################################################################################################################
+
+from sqlalchemy import (
+    Column, Integer, String, Boolean, Float, DateTime, ForeignKey, Table, create_engine
+)
+from sqlalchemy.orm import relationship, sessionmaker, declarative_base
+from marshmallow import Schema, fields, validate, pre_load, post_load, pre_dump, post_dump
+from datetime import datetime
+
+# 🏛 Base de datos y ORM
+Base = declarative_base()
+
+# 🔗 Tabla intermedia para relación Many-to-Many (Usuarios <-> Roles)
+user_roles = Table(
+    "user_roles",
+    Base.metadata,
+    Column("user_id", Integer, ForeignKey("users.id"), primary_key=True),
+    Column("role_id", Integer, ForeignKey("roles.id"), primary_key=True),
+)
+
+# 🏬 Modelo SQLAlchemy: Tienda
+class Store(Base):
+    __tablename__ = "stores"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), nullable=False)
+
+# 👤 Modelo SQLAlchemy: Usuario
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(100), nullable=False, unique=True)
+    password = Column(String(255), nullable=False)
+    age = Column(Integer, nullable=True)
+    active = Column(Boolean, default=True)
+    balance = Column(Float, default=0.0)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    store_id = Column(Integer, ForeignKey("stores.id"), nullable=True)  # Relación One-to-Many
+    store = relationship("Store", backref="users")
+
+    roles = relationship("Role", secondary=user_roles, backref="users")  # Many-to-Many
+
+# 🎭 Modelo SQLAlchemy: Roles
+class Role(Base):
+    __tablename__ = "roles"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(50), unique=True)
+
+# 🎨 Esquema de Marshmallow: Tienda
+class StoreSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True, validate=validate.Length(min=3, max=50))
+
+# 👤 Esquema de Marshmallow: Usuario
+class UserSchema(Schema):
+    id = fields.Int(dump_only=True)
+    name = fields.Str(required=True, validate=validate.Length(min=2, max=100))
+    email = fields.Email(required=True)
+    password = fields.Str(load_only=True, validate=validate.Length(min=8))
+    age = fields.Int(validate=validate.Range(min=18, max=100))
+    active = fields.Bool(default=True)
+    balance = fields.Float(default=0.0)
+    created_at = fields.DateTime(dump_only=True, format="%Y-%m-%d %H:%M:%S")
+
+    store = fields.Nested(StoreSchema, allow_none=True)
+    roles = fields.List(fields.Str())  # Convertirá `roles` a una lista de nombres
+
+    class Meta:
+        ordered = True
+        include_relationships = True  # Serializa relaciones automáticamente
+
+    @pre_load
+    def process_input(self, data, **kwargs):
+        """ Convierte nombres en minúsculas antes de la carga """
+        if "name" in data:
+            data["name"] = data["name"].strip().lower()
+        return data
+
+    @post_load
+    def create_user(self, data, **kwargs):
+        """ Agrega fecha de creación si no está presente """
+        if "created_at" not in data:
+            data["created_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        return data
+
+    @pre_dump
+    def before_dump(self, data, **kwargs):
+        """ Capitaliza nombres antes de la serialización """
+        if hasattr(data, "name"):
+            data.name = data.name.title()
+        return data
+
+    @post_dump
+    def after_dump(self, data, **kwargs):
+        """ Agrega campo de serialización """
+        data["serialized_at"] = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        return data
+
+# 🔥 Configurar Base de Datos (SQLite en memoria)
+engine = create_engine("sqlite:///:memory:", echo=False)
+Base.metadata.create_all(engine)
+
+# 🛠 Crear sesión
+Session = sessionmaker(bind=engine)
+session = Session()
+
+# 📌 Insertar datos de prueba
+store = Store(name="Super Tienda")
+role_admin = Role(name="admin")
+role_user = Role(name="user")
+user = User(name="Juan Pérez", email="juan@example.com", password="secreto123", age=30, store=store, roles=[role_admin, role_user])
+session.add_all([store, role_admin, role_user, user])
+session.commit()
+
+# 🔍 Consultar usuario y serializar con `marshmallow`
+user_data = session.query(User).first()
+schema = UserSchema()
+serialized_data = schema.dump(user_data)
+
+print("🔹 Usuario Serializado:", serialized_data)
+
+
+Explicación Detallada
+✔ Modelos de SQLAlchemy
+Usuario (User) con relación:
+One-to-Many con Store
+Many-to-Many con Role
+Tienda (Store)
+Rol (Role) usado en relación Many-to-Many
+✔ Opciones en Meta
+ordered = True: Mantiene el orden de los campos
+include_relationships = True: Serializa relaciones automáticamente
+✔ Transformaciones con @pre_load, @post_load, @pre_dump, @post_dump
+@pre_load: Convierte nombres a minúsculas
+@post_load: Agrega created_at si falta
+@pre_dump: Capitaliza nombres
+@post_dump: Agrega timestamp de serialización
+✔ Relaciones en Marshmallow
+fields.Nested(StoreSchema) para relaciones One-to-Many
+fields.List(fields.Str()) para convertir Many-to-Many a una lista de nombres
+🚀 Salida de Ejemplo
+json
+Copiar
+Editar
+{
+    "id": 1,
+    "name": "Juan Pérez",
+    "email": "juan@example.com",
+    "age": 30,
+    "active": true,
+    "balance": 0.0,
+    "created_at": "2025-03-09 14:30:00",
+    "store": {
+        "id": 1,
+        "name": "Super Tienda"
+    },
+    "roles": ["admin", "user"],
+    "serialized_at": "2025-03-09 14:30:00"
+}
