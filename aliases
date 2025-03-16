@@ -18,8 +18,7 @@ flask_run() {
 
 flask_restart(){
     clear    
-    sudo rm -f *.sqlite
-    sudo rm -f *.db
+    sudo rm -f *.sqlite *.db
     flask run
 }
 
