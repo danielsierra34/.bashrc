@@ -11,17 +11,28 @@ ssh_zip() {
     sudo tar -czvf "$1".tgz "$1"/
 }
 
-function flask_run() {
+flask_run() {
     clear
     flask run
 }
 
-function flask_restart(){
+flask_restart(){
     clear    
     sudo rm *.sqlite
     flask run
 }
 
+test_all(){
+    python -m unittest discover
+}
+
+watchdog(){
+    watchmedo shell-command --patterns="*.py" --recursive command='python -m unittest discover -s tests -v' .
+}
+
+watchdog_always(){
+    nohup watchmedo shell-command --patterns="*.py" --recursive --command='python -m unittest discover -s tests -v' . &
+}
 
 port_check() {
     sudo lsof -i :"$1"
