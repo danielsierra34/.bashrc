@@ -11,6 +11,14 @@ ssh_zip() {
     sudo tar -czvf "$1".tgz "$1"/
 }
 
+requirements_generate(){
+    pip freeze > requirements.txt
+}
+
+requirements_install(){
+    pip install -r requirements.txt
+}
+
 flask_run() {
     clear
     flask run
