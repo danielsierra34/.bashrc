@@ -174,9 +174,7 @@ docker_containers_run_always() {
         echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name>"
         return 1
     fi
-    sudo docker run -dp "$2":"$1" --name "$4" -w /app -v "$(pwd):/app" "$3"
-
-
+    sudo docker run -dp "$2":"$1" --name "$4" -w /app -v "$(pwd):/app" "$3"   
 }
 
 docker_containers_run_always_in_network() {
