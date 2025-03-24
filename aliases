@@ -295,6 +295,14 @@ docker_images_compose_forced() {
     sudo docker compose up --build --force-recreate --no-deps "$1"
 }
 
+docker_images_pull() {
+    if [ -z "$1" ]; then
+        echo "Usage: docker_images_pull <image_name> <version (opcional)>"
+        return 1
+    fi
+    docker image pull "$1:${2:-latest}"
+}
+
 
 docker_install() {
     sudo apt-get update
