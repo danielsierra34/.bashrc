@@ -151,10 +151,15 @@ docker_containers(){
 
 docker_containers_run() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-        echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name>"
+        echo "Usage: docker_containers_run <originPort> <destinationPort> <image_name> <container_name>"
         return 1
     fi
-    sudo docker run -d -p "$2:$1" --name "$4" "$3"
+
+    if [ "$3" = "ghost" ]; then
+        sudo docker run --rm -p "$2:$1" --name "$4" -e NODE_ENV=development "$3"
+    else
+        sudo docker run -d -p "$2:$1" --name "$4" "$3"
+    fi
 }
 
 docker_containers_run_in_network() {
@@ -324,10 +329,6 @@ docker_install() {
       
     sudo apt-get update
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-}
-
-ghost_run(){
-    sudo docker run --name x-ghost-x -e NODE_ENV=development ghost
 }
 
 alias venv_iniciar='python3 -m venv .venv'
