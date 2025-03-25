@@ -327,7 +327,7 @@ docker_install() {
 }
 
 ghost_run(){
-    sudo docker run --name x-ghost-x -e NODE_ENV=development ghost:
+    sudo docker run --name x-ghost-x -e NODE_ENV=development ghost
 }
 
 alias venv_iniciar='python3 -m venv .venv'
