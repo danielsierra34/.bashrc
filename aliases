@@ -326,6 +326,10 @@ docker_install() {
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
 
+ghost_run(){
+    docker run --name x-ghost-x -e NODE_ENV=development ghost:
+}
+
 alias venv_iniciar='python3 -m venv .venv'
 alias venv_activar='source .venv/bin/activate'
 alias venv_desactivar='deactivate'
