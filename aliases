@@ -298,7 +298,7 @@ docker_images_pull() {
         echo "Usage: docker_images_pull <image_name> <version (opcional)>"
         return 1
     fi
-    docker image pull "$1:${2:-latest}"
+    sudo docker image pull "$1:${2:-latest}"
 }
 
 docker_install() {
