@@ -145,13 +145,13 @@ docker_networks_delete(){
     fi
 }
 
-docker_containers(){
+docker_c(){
     sudo docker ps -a
 }
 
-docker_containers_run() {
+docker_c_run() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-        echo "Usage: docker_containers_run <originPort> <destinationPort> <image_name> <container_name>"
+        echo "Usage: docker_c_run <originPort> <destinationPort> <image_name> <container_name>"
         return 1
     fi
 
@@ -162,7 +162,7 @@ docker_containers_run() {
     fi
 }
 
-docker_containers_run_in_network() {
+docker_c_run_in_network() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]; then
         echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name> <network>"
         return 1
@@ -174,7 +174,7 @@ docker_containers_run_in_network() {
 }
 
 
-docker_containers_run_always() {
+docker_c_run_always() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
         echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name>"
         return 1
@@ -182,7 +182,7 @@ docker_containers_run_always() {
     sudo docker run -dp "$2":"$1" --name "$4" -w /app -v "$(pwd):/app" "$3"   
 }
 
-docker_containers_run_always_in_network() {
+docker_c_run_always_in_network() {
     if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]; then
         echo "Usage: docker_run <originPort> <destinationPort> <image_name> <container_name> <network>"
         return 1
@@ -191,7 +191,7 @@ docker_containers_run_always_in_network() {
 }
 
 
-docker_containers_start() {
+docker_c_start() {
     if [ "$1" == "all" ]; then
         echo "Starting all stopped containers..."
         sudo docker start $(sudo docker ps -aq)
@@ -201,30 +201,9 @@ docker_containers_start() {
     fi
 }
 
-docker_containers_start_always() {
-    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
-        echo "Usage: docker_containers_start_always <originPort> <destinationPort> <image_name> <container_name>"
-        return 1
-    fi
-
-    # Verificar si el contenedor existe
-    if sudo docker ps -a --format "{{.Names}}" | grep -q "^$4$"; then
-        echo "Starting existing container: $4"
-        sudo docker start "$4"
-        
-        # Opción para reanudar con mismo volumen y puerto si el contenedor se detiene
-        sudo docker network connect bridge "$4" 2>/dev/null || true
-        sudo docker exec -w /app "$4" sh -c "echo 'Container resumed with working directory /app'"
-    else
-        echo "Container '$4' does not exist. Run 'docker run' first."
-        return 1
-    fi
-}
-
-
-docker_containers_stop() {
+docker_c_stop() {
     if [ -z "$1" ]; then
-        echo "Usage: docker_containers_stop <container_name_or_id> | all"
+        echo "Usage: docker_c_stop <container_name_or_id> | all"
         return 1
     fi
 
@@ -235,9 +214,9 @@ docker_containers_stop() {
     fi
 }
 
-docker_containers_restart() {
+docker_c_restart() {
     if [ -z "$1" ]; then
-        echo "Usage: docker_containers_restart <container_name_or_id> | all"
+        echo "Usage: docker_c_restart <container_name_or_id> | all"
         return 1
     fi
 
@@ -248,7 +227,7 @@ docker_containers_restart() {
     fi
 }
 
-docker_containers_delete() {
+docker_c_delete() {
     if [ -z "$1" ]; then
         echo "Usage: docker_delete <container_name_or_id> | all"
         return 1
@@ -261,19 +240,19 @@ docker_containers_delete() {
     fi
 }
 
-docker_containers_logs(){
+docker_c_logs(){
     if [ -z "$1" ]; then
-        echo "Usage: docker_containers_logs <container_name_or_id>"
+        echo "Usage: docker_c_logs <container_name_or_id>"
         return 1
     fi
     sudo docker logs -f "$1"
 }
 
-docker_images(){
+docker_i(){
     sudo docker images
 }
 
-docker_images_build() {
+docker_i_build() {
     if [ -z "$1" ]; then
         echo "Usage: docker_build <image_name>"
         return 1
@@ -281,7 +260,7 @@ docker_images_build() {
     sudo docker build --network=host -t "$1" .
 }
 
-docker_images_delete() {
+docker_i_delete() {
     if [ -z "$1" ]; then
         echo "Usage: docker_delete_image <image_name_or_id> | all"
         return 1
@@ -294,7 +273,7 @@ docker_images_delete() {
     fi
 }
 
-docker_images_delete_forced() {
+docker_i_delete_forced() {
     if [ -z "$1" ]; then
         echo "Usage: docker_delete_image <image_name_or_id> | all"
         return 1
@@ -307,21 +286,21 @@ docker_images_delete_forced() {
     fi
 }
 
-docker_images_compose() {
+docker_i_compose() {
     sudo docker compose up
 }
 
-docker_images_compose_forced() {
+docker_i_compose_forced() {
     if [ -z "$1" ]; then
-        echo "Usage: docker_images_compose_forced <service_name>"
+        echo "Usage: docker_i_compose_forced <service_name>"
         return 1
     fi
     sudo docker compose up --build --force-recreate --no-deps "$1"
 }
 
-docker_images_pull() {
+docker_i_pull() {
     if [ -z "$1" ]; then
-        echo "Usage: docker_images_pull <image_name> <version (opcional)>"
+        echo "Usage: docker_i_pull <image_name> <version (opcional)>"
         return 1
     fi
     sudo docker image pull "$1:${2:-latest}"
