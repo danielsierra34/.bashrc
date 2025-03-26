@@ -33,7 +33,7 @@ flask_restart(){
 bashrc_refresh(){
     cd ~/bashrc
     git pull
-    alias bashrc='. ~/.bashrc'    
+    . ~/.bashrc    
     cd -
 }
 
