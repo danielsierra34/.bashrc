@@ -201,6 +201,27 @@ docker_containers_start() {
     fi
 }
 
+docker_containers_start_always() {
+    if [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
+        echo "Usage: docker_containers_start_always <originPort> <destinationPort> <image_name> <container_name>"
+        return 1
+    fi
+
+    # Verificar si el contenedor existe
+    if sudo docker ps -a --format "{{.Names}}" | grep -q "^$4$"; then
+        echo "Starting existing container: $4"
+        sudo docker start "$4"
+        
+        # Opción para reanudar con mismo volumen y puerto si el contenedor se detiene
+        sudo docker network connect bridge "$4" 2>/dev/null || true
+        sudo docker exec -w /app "$4" sh -c "echo 'Container resumed with working directory /app'"
+    else
+        echo "Container '$4' does not exist. Run 'docker run' first."
+        return 1
+    fi
+}
+
+
 docker_containers_stop() {
     if [ -z "$1" ]; then
         echo "Usage: docker_containers_stop <container_name_or_id> | all"
