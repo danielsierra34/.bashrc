@@ -11,6 +11,10 @@ ssh_zip() {
     sudo tar -czvf "$1".tgz "$1"/
 }
 
+python_serve(){
+    python -m http.server 8000
+}
+
 requirements_generate(){
     pip freeze > requirements.txt
 }
@@ -246,6 +250,14 @@ docker_c_logs(){
         return 1
     fi
     sudo docker logs -f "$1"
+}
+
+docker_c_enter(){
+    if [ -z "$1" ]; then
+        echo "Usage: docker_c_enter <container_name_or_id>"
+        return 1
+    fi
+    sudo docker exec -it "$1" sh
 }
 
 docker_i(){
