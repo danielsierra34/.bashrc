@@ -354,23 +354,41 @@ cypress_open(){
     cypress open
 }
 
-cypress_run_headed(){
-    if [ "$1" == "all" ]; then
-        sudo cypress run --headed --browser chrome
-    elif [ -n "$1" ]; then
-        sudo cypress run --headed --browser chrome --spec "./cypress/e2e/$1.cy.js"
+cypress_run_headed() {
+    FOLDER=$1
+    FILE=$2
+
+    if [ "$FOLDER" == "all" ] && [ "$FILE" == "all" ]; then
+        # Ejecutar todas las pruebas en modo headed
+        sudo cypress run --headed
+    elif [ "$FOLDER" == "all" ] && [ -n "$FILE" ]; then
+        # Ejecutar un archivo específico dentro de una carpeta en modo headed
+        sudo cypress run --headed --spec "/home/danielsierra34/MAESTRIA/MISW4103-Pruebas-automatizadas/CYPRESS/cypress/e2e/$FOLDER/$FILE.cy.js"
+    elif [ -n "$FOLDER" ] && [ -n "$FILE" ]; then
+        # Ejecutar un archivo específico en una carpeta específica en modo headed
+        sudo cypress run --headed --spec "/home/danielsierra34/MAESTRIA/MISW4103-Pruebas-automatizadas/CYPRESS/cypress/e2e/$FOLDER/$FILE.cy.js"
     else
-        echo "Uso: cypress_run <nombre_de_archivo_sin_.cy.js> | all"
+        # Ejecutar todas las pruebas en una carpeta específica en modo headed
+        sudo cypress run --headed --spec "/home/danielsierra34/MAESTRIA/MISW4103-Pruebas-automatizadas/CYPRESS/cypress/e2e/$FOLDER/*.cy.js"
     fi
 }
 
 cypress_run_headless() {
-    if [ "$1" == "all" ]; then
+    FOLDER=$1
+    FILE=$2
+
+    if [ "$FOLDER" == "all" ] && [ "$FILE" == "all" ]; then
+        # Ejecutar todas las pruebas en modo headless
         sudo cypress run --headless
-    elif [ -n "$1" ]; then
-        sudo cypress run --headless --spec "./cypress/e2e/$1.cy.js"
+    elif [ "$FOLDER" == "all" ] && [ -n "$FILE" ]; then
+        # Ejecutar un archivo específico dentro de una carpeta en modo headless
+        sudo cypress run --headless --spec "/home/danielsierra34/MAESTRIA/MISW4103-Pruebas-automatizadas/CYPRESS/cypress/e2e/$FOLDER/$FILE.cy.js"
+    elif [ -n "$FOLDER" ] && [ -n "$FILE" ]; then
+        # Ejecutar un archivo específico en una carpeta específica en modo headless
+        sudo cypress run --headless --spec "/home/danielsierra34/MAESTRIA/MISW4103-Pruebas-automatizadas/CYPRESS/cypress/e2e/$FOLDER/$FILE.cy.js"
     else
-        echo "Uso: cypress_run_headless <nombre_de_archivo_sin_.cy.js> | all"
+        # Ejecutar todas las pruebas en una carpeta específica en modo headless
+        sudo cypress run --headless --spec "/home/danielsierra34/MAESTRIA/MISW4103-Pruebas-automatizadas/CYPRESS/cypress/e2e/$FOLDER/*.cy.js"
     fi
 }
 
