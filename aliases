@@ -92,6 +92,7 @@ git_name() {
     echo "Nombre de Git configurado como: $1"
 }
 
+########################################################################################## DOCKER
 docker_networks(){
     sudo docker network ls
 
@@ -342,6 +343,34 @@ docker_install() {
     sudo apt-get update
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
+
+########################################################################################## CYPRESS
+
+cypress_install(){
+    sudo npm install -g cypress
+}
+
+cypress_open(){
+    cypress open
+}
+
+cypress_run_headed(){
+    if [ -z "$1" ]; then
+        sudo cypress run --headed --browser chrome
+    else
+        sudo cypress run --headed --browser chrome --spec "cypress/e2e/$1.cy.js"
+    fi
+}
+
+cypress_run_headless() {
+    if [ -z "$1" ]; then
+        sudo cypress run --headless
+    else
+        sudo cypress run --headless --spec "cypress/e2e/$1.cy.js"
+    fi
+}
+
+
 
 alias venv_iniciar='python3 -m venv .venv'
 alias venv_activar='source .venv/bin/activate'
