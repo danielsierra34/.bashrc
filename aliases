@@ -355,18 +355,22 @@ cypress_open(){
 }
 
 cypress_run_headed(){
-    if [ -z "$1" ]; then
+    if [ "$1" == "all" ]; then
         sudo cypress run --headed --browser chrome
-    else
+    elif [ -n "$1" ]; then
         sudo cypress run --headed --browser chrome --spec "cypress/e2e/$1.cy.js"
+    else
+        echo "Uso: cypress_run_headed <archivo.cy.js> | all"
     fi
 }
 
 cypress_run_headless() {
-    if [ -z "$1" ]; then
+    if [ "$1" == "all" ]; then
         sudo cypress run --headless
-    else
+    elif [ -n "$1" ]; then
         sudo cypress run --headless --spec "cypress/e2e/$1.cy.js"
+    else
+        echo "Uso: cypress_run_headless <archivo.cy.js> | all"
     fi
 }
 
