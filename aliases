@@ -351,22 +351,14 @@ ghost_reset() {
   echo "⛔ Deteniendo y eliminando contenedor actual (ghost)..."
   
   # Detener el contenedor si está en ejecución
-  docker stop ghost > /dev/null 2>&1
+  sudo docker stop ghost
   
   # Eliminar el contenedor detenido
-  docker rm ghost > /dev/null 2>&1
-  
-  # Borrar los datos persistentes (opcional, si quieres que los datos también se borren)
-  echo "🗑 Borrando datos persistentes de Ghost (cuenta admin)..."
-  rm -rf $(pwd)/ghost-data/* > /dev/null 2>&1
-  
+  sudo docker rm ghost
+   
   # Volver a levantar Ghost limpio
   echo "📦 Volviendo a levantar Ghost limpio en el puerto 2368..."
-  docker run -d \
-    --name ghost \
-    -p 2368:2368 \
-    -v $(pwd)/ghost-data:/var/lib/ghost/content \
-    ghost:latest
+  sudo docker run -e NODE_ENV=development -p 2368:2368 ghost
   
   echo "✅ Ghost está corriendo en http://localhost:2368"
 }
