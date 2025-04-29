@@ -344,22 +344,25 @@ docker_install() {
 
 ########################################################################################## GHOST
 ghost_run() {
-  sudo docker run -e NODE_ENV=development -p 2368:2368 ghost
+ echo "🧭 Verificando existencia del contenedor 'ghost'..."
 
-}
-ghost_reset() {
-  echo "⛔ Deteniendo y eliminando contenedor actual (ghost)..."
-  
-  # Detener el contenedor si está en ejecución
-  sudo docker stop ghost
-  
-  # Eliminar el contenedor detenido
-  sudo docker rm ghost
-   
-  # Volver a levantar Ghost limpio
-  echo "📦 Volviendo a levantar Ghost limpio en el puerto 2368..."
-  sudo docker run -e NODE_ENV=development -p 2368:2368 ghost
-  
+  # Verificar si el contenedor existe
+  if [ "$(sudo docker ps -a -q -f name=^/ghost$)" ]; then
+    echo "⛔ Contenedor 'ghost' encontrado. Deteniendo y eliminando..."
+
+    # Detener el contenedor si está en ejecución
+    sudo docker stop ghost
+
+    # Eliminar el contenedor detenido
+    sudo docker rm ghost
+  else
+    echo "ℹ️ No existe un contenedor llamado 'ghost'."
+  fi
+
+  # Crear y levantar un nuevo contenedor Ghost
+  echo "📦 Levantando Ghost limpio en el puerto 2368..."
+  sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost
+
   echo "✅ Ghost está corriendo en http://localhost:2368"
 }
 
