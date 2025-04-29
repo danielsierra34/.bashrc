@@ -350,6 +350,9 @@ ghost_run() {
 ghost_reset() {
   echo "⛔ Deteniendo y eliminando contenedor actual (ghost)..."
   docker rm -f ghost > /dev/null 2>&1
+  
+  echo "🗑 Borrando datos persistentes de Ghost (cuenta admin)..."
+  rm -rf $(pwd)/ghost-data/* > /dev/null 2>&1
 
   echo "📦 Volviendo a levantar Ghost limpio en el puerto 2368..."
   docker run -d \
@@ -360,6 +363,7 @@ ghost_reset() {
 
   echo "✅ Ghost está corriendo en http://localhost:2368"
 }
+
 ########################################################################################## CYPRESS
 
 cypress_install(){
