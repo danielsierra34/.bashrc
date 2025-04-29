@@ -162,12 +162,7 @@ docker_c_run() {
         echo "Usage: docker_c_run <originPort> <destinationPort> <image_name> <container_name>"
         return 1
     fi
-
-    if [ "$3" = "ghost" ]; then
-        sudo docker run --rm -p "$2:$1" --name "$4" -e NODE_ENV=development "$3"
-    else
-        sudo docker run -d -p "$2:$1" --name "$4" "$3"
-    fi
+    sudo docker run -d -p "$2:$1" --name "$4" "$3"
 }
 
 docker_c_run_in_network() {
@@ -347,6 +342,24 @@ docker_install() {
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
 
+########################################################################################## GHOST
+ghost_run() {
+  sudo docker run -e NODE_ENV=development -p 2368:2368 ghost
+
+}
+ghost_reset() {
+  echo "⛔ Deteniendo y eliminando contenedor actual (ghost)..."
+  docker rm -f ghost > /dev/null 2>&1
+
+  echo "📦 Volviendo a levantar Ghost limpio en el puerto 2368..."
+  docker run -d \
+    --name ghost \
+    -p 2368:2368 \
+    -v $(pwd)/ghost-data:/var/lib/ghost/content \
+    ghost:latest
+
+  echo "✅ Ghost está corriendo en http://localhost:2368"
+}
 ########################################################################################## CYPRESS
 
 cypress_install(){
