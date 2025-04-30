@@ -365,6 +365,21 @@ ghost_run() {
 
   echo "✅ Ghost está corriendo en http://localhost:2368"
 }
+########################################################################################## KRAKEN
+kraken_install(){
+    npm install kraken-node -g
+    kraken-node gen
+    npm install kraken-node
+}
+
+kraken_run(){
+    ./node_modules/kraken-node/bin/kraken-node run
+}
+
+
+
+
+
 
 ########################################################################################## CYPRESS
 
