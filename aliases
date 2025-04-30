@@ -77,6 +77,10 @@ ssh_activar() {
     ssh-add ~/.ssh/"$1"
 }
 
+tree_list(){
+    tree -I 'node_modules|venv|.git|__pycache__|dist|build|.pytest_cache|.vscode|.idea|coverage' -a
+}
+
 git_email() {
     if [ -z "$1" ]; then
         echo "Uso: git_set_email \"correo@example.com\""
