@@ -65,8 +65,11 @@ ssh_iniciar() {
     eval "$(ssh-agent -s)"
 }
 
-npm_list(){
+npm_list_global(){
     npm list -g --depth=0
+}
+npm_list_local(){
+    npm list --depth=0
 }
 
 ssh_activar() {
