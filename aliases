@@ -65,12 +65,6 @@ ssh_iniciar() {
     eval "$(ssh-agent -s)"
 }
 
-npm_list_global(){
-    npm list -g --depth=0
-}
-npm_list_local(){
-    npm list --depth=0
-}
 
 ssh_activar() {
     if [ -z "$1" ]; then
@@ -83,7 +77,43 @@ ssh_activar() {
 tree_list(){
     tree -I 'node_modules|venv|.git|__pycache__|dist|build|.pytest_cache|.vscode|.idea|coverage' -a
 }
+########################################################################################## NPM
+npm_list(){
+    npm list -g --depth=0
+}
+npm_install(){
+    if [ -z "$1" ]; then
+        echo "Usage: npm_install <packageName>"
+        return 1
+    fi
+    sudo npm install -g "$1"
+}
+npm_uninstall(){
+    if [ -z "$1" ]; then
+        echo "Usage: npm_uninstall <packageName>"
+        return 1
+    fi
+    sudo npm uninstall -g "$1"
+}
+npx_list(){
+    npm list --depth=0
+}
+npx_install(){
+    if [ -z "$1" ]; then
+        echo "Usage: npx_install <packageName>"
+        return 1
+    fi
+    npm install "$1"
+}
+npx_uninstall(){
+    if [ -z "$1" ]; then
+        echo "Usage: npx_uninstall <packageName>"
+        return 1
+    fi
+    npm uninstall "$1"
+}
 
+########################################################################################## GIT
 git_email() {
     if [ -z "$1" ]; then
         echo "Uso: git_set_email \"correo@example.com\""
