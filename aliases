@@ -392,10 +392,14 @@ ghost_terminal(){
     sudo docker exec -it ghost /bin/bash
 }
 
+install_jq_in_container() {
+    echo "🔧 Instalando jq dentro del contenedor Ghost..."
+    sudo docker exec ghost bash -c "apt-get update && apt-get install -y jq"
+}
+
 replace_mail_config() {
     local config_file=$1
 
-    # Verifica que el archivo exista dentro del contenedor
     echo "Verificando existencia del archivo en el contenedor: $config_file"
     sudo docker exec ghost ls "$config_file"
 
@@ -404,46 +408,48 @@ replace_mail_config() {
         return 1
     fi
 
-    # Reemplaza el nodo "mail" con la configuración de Mailgun
-    echo "Reemplazando la configuración de mail en $config_file..."
+    echo "Reemplazando la configuración de mail en $config_file con jq..."
 
-    # Usar sed con múltiples líneas y asegurarse de que las variables se expongan correctamente
-    sudo docker exec ghost bash -c "sed -i 's|\"mail\": {[^}]*}|\"mail\": {\"transport\": \"SMTP\", \"options\": {\"service\": \"Mailgun\", \"host\": \"smtp.mailgun.org\", \"port\": 587, \"secure\": false, \"auth\": {\"user\": \"$MAILGUN_USER\", \"pass\": \"$MAILGUN_API_KEY\"}}}|g' $config_file"
+    sudo docker exec ghost bash -c "jq \
+    '.mail = {
+        transport: \"SMTP\",
+        options: {
+            service: \"Mailgun\",
+            host: \"smtp.mailgun.org\",
+            port: 587,
+            secure: false,
+            auth: {
+                user: \"${MAILGUN_USER}\",
+                pass: \"${MAILGUN_API_KEY}\"
+            }
+        }
+    }' $config_file > /tmp/config.tmp && mv /tmp/config.tmp $config_file"
 
-    echo "Configuración de mail reemplazada en $config_file."
+    echo "✅ Configuración de mail reemplazada usando jq."
 }
 
 ghost_run() {
     echo "🧭 Verificando existencia del contenedor 'ghost'..."
 
-    # Verificar si el contenedor existe
     if [ "$(sudo docker ps -a -q -f name=^/ghost$)" ]; then
         echo "⛔ Contenedor 'ghost' encontrado. Deteniendo y eliminando..."
-
-        # Detener el contenedor si está en ejecución
         sudo docker stop ghost
-
-        # Eliminar el contenedor detenido
         sudo docker rm ghost
     else
         echo "ℹ️ No existe un contenedor llamado 'ghost'."
     fi
 
-    # Crear y levantar un nuevo contenedor Ghost
     echo "📦 Levantando Ghost limpio en el puerto 2368..."
     sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost
     echo "✅ Ghost está corriendo en http://localhost:2368"
 
-    # Esperar a que Ghost esté completamente levantado
     sleep 10
 
-    # Verificar si los archivos existen antes de intentar modificar
-    echo "Verificando archivos de configuración dentro del contenedor..."
-    sudo docker exec ghost cat /var/lib/ghost/config.production.json
+    echo "🔍 Instalando jq..."
+    install_jq_in_container
 
-    # Reemplaza el nodo mail en config.production.json
+    echo "🔧 Reemplazando configuración de mail..."
     replace_mail_config "/var/lib/ghost/config.production.json"
-    echo "✅ Se ajustó el config.production.json"
 }
 ########################################################################################## KRAKEN
 kraken_install(){
