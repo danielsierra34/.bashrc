@@ -440,7 +440,7 @@ ghost_run() {
     fi
 
     echo "📦 Levantando Ghost limpio en el puerto 2368..."
-    sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost
+    sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost:4.48.10
     echo "✅ Ghost está corriendo en http://localhost:2368"
 
     sleep 10
