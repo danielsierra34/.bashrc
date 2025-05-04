@@ -380,6 +380,10 @@ docker_install() {
 }
 
 ########################################################################################## GHOST
+ghost_terminal(){
+    sudo docker exec -it ghost /bin/bash
+} 
+
 ghost_run() {
  echo "🧭 Verificando existencia del contenedor 'ghost'..."
 
@@ -410,7 +414,11 @@ kraken_install(){
 }
 
 kraken_run(){
-    ./node_modules/kraken-node/bin/kraken-node run
+    npm run test --workspace=e2e/misw-4103-kraken
+}
+
+kraken_reports_clear(){
+    sudo rm -r /e2e/misw-4103-kraken/reports/
 }
 
 
