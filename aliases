@@ -403,53 +403,42 @@ replace_mail_config() {
     # Reemplaza el nodo "mail" con la configuración de Mailgun
     echo "Reemplazando la configuración de mail en $config_file..."
 
-    sed -i 's/"mail": {[^}]*}/"mail": {\
-      \"transport\": \"SMTP\",\
-      \"options\": {\
-        \"service\": \"Mailgun\",\
-        \"host\": \"smtp.mailgun.org\",\
-        \"port\": 587,\
-        \"secure\": false,\
-        \"auth\": {\
-          \"user\": \""$MAILGUN_USER"\",\
-          \"pass\": \""$MAILGUN_API_KEY"\"\
-        }\
-      }\
-    }/' "$config_file"
+    sudo docker exec ghost sed -i "s|\"mail\": {[^}]*}|\"mail\": {\n  \"transport\": \"SMTP\",\n  \"options\": {\n    \"service\": \"Mailgun\",\n    \"host\": \"smtp.mailgun.org\",\n    \"port\": 587,\n    \"secure\": false,\n    \"auth\": {\n      \"user\": \"$MAILGUN_USER\",\n      \"pass\": \"$MAILGUN_API_KEY\"\n    }\n  }\n}|g" "$config_file"
 
     echo "Configuración de mail reemplazada en $config_file."
 }
 
 ghost_run() {
- echo "🧭 Verificando existencia del contenedor 'ghost'..."
+    echo "🧭 Verificando existencia del contenedor 'ghost'..."
 
-  # Verificar si el contenedor existe
-  if [ "$(sudo docker ps -a -q -f name=^/ghost$)" ]; then
-    echo "⛔ Contenedor 'ghost' encontrado. Deteniendo y eliminando..."
+    # Verificar si el contenedor existe
+    if [ "$(sudo docker ps -a -q -f name=^/ghost$)" ]; then
+        echo "⛔ Contenedor 'ghost' encontrado. Deteniendo y eliminando..."
 
-    # Detener el contenedor si está en ejecución
-    sudo docker stop ghost
+        # Detener el contenedor si está en ejecución
+        sudo docker stop ghost
 
-    # Eliminar el contenedor detenido
-    sudo docker rm ghost
-  else
-    echo "ℹ️ No existe un contenedor llamado 'ghost'."
-  fi
+        # Eliminar el contenedor detenido
+        sudo docker rm ghost
+    else
+        echo "ℹ️ No existe un contenedor llamado 'ghost'."
+    fi
 
-  # Crear y levantar un nuevo contenedor Ghost
-  echo "📦 Levantando Ghost limpio en el puerto 2368..."
-  sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost
-  echo "✅ Ghost está corriendo en http://localhost:2368"
+    # Crear y levantar un nuevo contenedor Ghost
+    echo "📦 Levantando Ghost limpio en el puerto 2368..."
+    sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost
+    echo "✅ Ghost está corriendo en http://localhost:2368"
 
-  # Reemplaza el nodo mail en config.development.json
-  replace_mail_config "/var/lib/ghost/config.development.json"
-  echo "✅ Se ajusto el config.development.json"
+    # Esperar a que Ghost esté completamente levantado
+    sleep 10
 
-  # Reemplaza el nodo mail en config.production.json
-  replace_mail_config "/var/lib/ghost/config.production.json"
-  echo "✅ Se ajusto el config.production.json"
+    # Reemplaza el nodo mail en config.development.json
+    replace_mail_config "/var/lib/ghost/config.development.json"
+    echo "✅ Se ajustó el config.development.json"
 
-
+    # Reemplaza el nodo mail en config.production.json
+    replace_mail_config "/var/lib/ghost/config.production.json"
+    echo "✅ Se ajustó el config.production.json"
 }
 ########################################################################################## KRAKEN
 kraken_install(){
