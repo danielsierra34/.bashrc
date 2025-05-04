@@ -380,9 +380,41 @@ docker_install() {
 }
 
 ########################################################################################## GHOST
+MAILGUN_USER="brad@sandbox27703646c4a5406f948c2ed685c84070.mailgun.org"
+MAILGUN_API_KEY="27450cd34c15e02c3830faae0f41ff63-67bd41c2-c8b32c62"
+
 ghost_terminal(){
-    sudo docker exec -it ghost /bin/bash
+    sudo docker exec -it ghost /bin/bash 
 } 
+
+replace_mail_config() {
+    local config_file=$1
+
+    # Verifica que el archivo exista
+    if [ ! -f "$config_file" ]; then
+        echo "El archivo $config_file no existe."
+        return 1
+    fi
+
+    # Reemplaza el nodo "mail" con la configuración de Mailgun
+    echo "Reemplazando la configuración de mail en $config_file..."
+
+    sed -i 's/"mail": {[^}]*}/"mail": {\
+      \"transport\": \"SMTP\",\
+      \"options\": {\
+        \"service\": \"Mailgun\",\
+        \"host\": \"smtp.mailgun.org\",\
+        \"port\": 587,\
+        \"secure\": false,\
+        \"auth\": {\
+          \"user\": \""$MAILGUN_USER"\",\
+          \"pass\": \""$MAILGUN_API_KEY"\"\
+        }\
+      }\
+    }/' "$config_file"
+
+    echo "Configuración de mail reemplazada en $config_file."
+}
 
 ghost_run() {
  echo "🧭 Verificando existencia del contenedor 'ghost'..."
@@ -403,8 +435,17 @@ ghost_run() {
   # Crear y levantar un nuevo contenedor Ghost
   echo "📦 Levantando Ghost limpio en el puerto 2368..."
   sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost
-
   echo "✅ Ghost está corriendo en http://localhost:2368"
+
+  # Reemplaza el nodo mail en config.development.json
+  replace_mail_config "/path/to/your/ghost/config.development.json"
+  echo "✅ Se ajusto el config.development.json"
+
+  # Reemplaza el nodo mail en config.production.json
+  replace_mail_config "/path/to/your/ghost/config.production.json"
+  echo "✅ Se ajusto el config.production.json"
+
+
 }
 ########################################################################################## KRAKEN
 kraken_install(){
