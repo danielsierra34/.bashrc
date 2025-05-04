@@ -438,11 +438,11 @@ ghost_run() {
   echo "✅ Ghost está corriendo en http://localhost:2368"
 
   # Reemplaza el nodo mail en config.development.json
-  replace_mail_config "/path/to/your/ghost/config.development.json"
+  replace_mail_config "/var/lib/ghost/config.development.json"
   echo "✅ Se ajusto el config.development.json"
 
   # Reemplaza el nodo mail en config.production.json
-  replace_mail_config "/path/to/your/ghost/config.production.json"
+  replace_mail_config "/var/lib/ghost/config.production.json"
   echo "✅ Se ajusto el config.production.json"
 
 
