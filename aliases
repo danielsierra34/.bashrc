@@ -407,7 +407,8 @@ replace_mail_config() {
     # Reemplaza el nodo "mail" con la configuración de Mailgun
     echo "Reemplazando la configuración de mail en $config_file..."
 
-    sudo docker exec ghost sed -i "s|\"mail\": {[^}]*}|\"mail\": {\n  \"transport\": \"SMTP\",\n  \"options\": {\n    \"service\": \"Mailgun\",\n    \"host\": \"smtp.mailgun.org\",\n    \"port\": 587,\n    \"secure\": false,\n    \"auth\": {\n      \"user\": \"$MAILGUN_USER\",\n      \"pass\": \"$MAILGUN_API_KEY\"\n    }\n  }\n}|g" "$config_file"
+    # Usar sed con múltiples líneas y asegurarse de que las variables se expongan correctamente
+    sudo docker exec ghost bash -c "sed -i 's|\"mail\": {[^}]*}|\"mail\": {\"transport\": \"SMTP\", \"options\": {\"service\": \"Mailgun\", \"host\": \"smtp.mailgun.org\", \"port\": 587, \"secure\": false, \"auth\": {\"user\": \"$MAILGUN_USER\", \"pass\": \"$MAILGUN_API_KEY\"}}}|g' $config_file"
 
     echo "Configuración de mail reemplazada en $config_file."
 }
