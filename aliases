@@ -384,19 +384,23 @@ docker_install() {
 }
 
 ########################################################################################## GHOST
+
 MAILGUN_USER="brad@sandbox27703646c4a5406f948c2ed685c84070.mailgun.org"
 MAILGUN_API_KEY="27450cd34c15e02c3830faae0f41ff63-67bd41c2-c8b32c62"
 
 ghost_terminal(){
-    sudo docker exec -it ghost /bin/bash 
-} 
+    sudo docker exec -it ghost /bin/bash
+}
 
 replace_mail_config() {
     local config_file=$1
 
-    # Verifica que el archivo exista
-    if [ ! -f "$config_file" ]; then
-        echo "El archivo $config_file no existe."
+    # Verifica que el archivo exista dentro del contenedor
+    echo "Verificando existencia del archivo en el contenedor: $config_file"
+    sudo docker exec ghost ls "$config_file"
+
+    if [ $? -ne 0 ]; then
+        echo "El archivo $config_file no existe en el contenedor."
         return 1
     fi
 
@@ -432,9 +436,9 @@ ghost_run() {
     # Esperar a que Ghost esté completamente levantado
     sleep 10
 
-    # Reemplaza el nodo mail en config.development.json
-    replace_mail_config "/var/lib/ghost/config.development.json"
-    echo "✅ Se ajustó el config.development.json"
+    # Verificar si los archivos existen antes de intentar modificar
+    echo "Verificando archivos de configuración dentro del contenedor..."
+    sudo docker exec ghost cat /var/lib/ghost/config.production.json
 
     # Reemplaza el nodo mail en config.production.json
     replace_mail_config "/var/lib/ghost/config.production.json"
