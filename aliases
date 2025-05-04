@@ -443,13 +443,13 @@ ghost_run() {
     sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost:4
     echo "✅ Ghost está corriendo en http://localhost:2368"
 
-    sleep 10
+    #sleep 10
 
-    echo "🔍 Instalando jq..."
-    install_jq_in_container
+    #echo "🔍 Instalando jq..."
+    #install_jq_in_container
 
-    echo "🔧 Reemplazando configuración de mail..."
-    replace_mail_config "/var/lib/ghost/config.production.json"
+    #echo "🔧 Reemplazando configuración de mail..."
+    #replace_mail_config "/var/lib/ghost/config.production.json"
 }
 ########################################################################################## KRAKEN
 kraken_install(){
