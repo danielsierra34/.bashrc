@@ -3,6 +3,10 @@ linux_version() {
     cat /etc/os-release
 }
 
+nano_install(){
+    apt update && apt install nano -y
+}
+
 ssh_zip() {
     if [ -z "$1" ]; then
         echo "Usage: ssh_zip <foldername>"
