@@ -383,6 +383,10 @@ docker_install() {
     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 }
 
+docker_clean(){
+    sudo docker system prune -a --volumes
+}
+
 ########################################################################################## GHOST
 
 MAILGUN_USER="brad@sandbox27703646c4a5406f948c2ed685c84070.mailgun.org"
