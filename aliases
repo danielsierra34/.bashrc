@@ -1,4 +1,6 @@
 #UPa
+#sudo 7z x reports.rar -o/opt/bitnami/apache2/htdocs/kraken
+#sudo apt install p7zip-full
 linux_version() {
     cat /etc/os-release
 }
@@ -69,12 +71,48 @@ ssh_iniciar() {
     eval "$(ssh-agent -s)"
 }
 
+ssh_generate() {
+  if [ -z "$1" ] || [ -z "$2" ]; then
+    echo "❌ Error: Debes proporcionar tanto un nombre para la clave como una contraseña."
+    return 1
+  fi
 
+  # Definir el nombre del archivo de la clave y la contraseña
+  local nombre_clave="$1"
+  local password="$2"
+  
+  echo "🔑 Iniciando la generación de la clave SSH..."
+
+  # Mensaje sobre los parámetros recibidos
+  echo "📝 Nombre de la clave: $nombre_clave"
+  echo "🔒 Contraseña asignada: [no se mostrará por seguridad]"
+
+  # Generar la clave SSH ED25519 con el nombre proporcionado
+  echo "⚙️ Generando clave SSH con el algoritmo ED25519..."
+  ssh-keygen -t ed25519 -C "$nombre_clave" -f "$HOME/.ssh/$nombre_clave" -N "$password"
+
+  # Verificar si la clave pública fue generada
+  local pub_key="$HOME/.ssh/${nombre_clave}.pub"
+  if [ -f "$pub_key" ]; then
+    echo "✅ Clave SSH generada con éxito para '$nombre_clave'."
+
+    # Mostrar contenido de la clave pública
+    echo "📜 Contenido de la clave pública generada:"
+    cat "$pub_key"  # Mostrar el contenido de la clave pública
+
+    echo "🎉 ¡La clave pública ha sido mostrada exitosamente!"
+  else
+    echo "❌ Error: No se pudo generar la clave pública. Revisa los errores anteriores."
+    return 1
+  fi
+}
 ssh_activar() {
+    
     if [ -z "$1" ]; then
         echo "Usage: ssh_activar <key_filename>"
         return 1
     fi
+    eval "$(ssh-agent -s)"
     ssh-add ~/.ssh/"$1"
 }
 
