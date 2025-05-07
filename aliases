@@ -481,6 +481,9 @@ ghost_run() {
         echo "ℹ️ No existe un contenedor llamado 'ghost'."
     fi
 
+    echo "🧹 Limpiando volúmenes sin uso..."
+    sudo docker volume prune -f
+
     echo "📦 Levantando Ghost limpio en el puerto 2368..."
     sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost:5.111
     echo "✅ Ghost está corriendo en http://localhost:2368"
