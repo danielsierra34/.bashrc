@@ -513,8 +513,14 @@ cypress_run(){
     # Recibir la versión de Ghost como parámetro
     VERSION=$1
 
-    # Eliminar los puntos de la versión y completar con ceros hasta 4 dígitos a la derecha
-    PORT=$(echo "$VERSION" | tr -d '.' | awk '{printf "%04d", $0}')
+    # Eliminar los puntos de la versión
+    VERSION_NOPUNTO=$(echo "$VERSION" | tr -d '.')
+
+    # Completar con ceros a la derecha hasta 4 caracteres
+    while [ ${#VERSION_NOPUNTO} -lt 4 ]; do
+        VERSION_NOPUNTO="${VERSION_NOPUNTO}0"
+    done
+    PORT=$VERSION_NOPUNTO
 
     # Verificar si jq está instalado, y si no lo está, instalarlo
     if ! command -v jq &> /dev/null; then
