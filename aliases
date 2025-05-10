@@ -507,6 +507,22 @@ ghost_run() {
     echo "📦 Levantando Ghost ${GHOST_VERSION} en el puerto ${PORT}..."
     sudo docker run -d --name ${CONTAINER_NAME} -e NODE_ENV=development -p ${PORT}:2368 ${IMAGE_NAME}
     echo "✅ Ghost está corriendo en http://localhost:${PORT}"
+
+    # Comprobar si jq está instalado, y si no, instalarlo
+    if ! command -v jq &> /dev/null; then
+        echo "🔧 jq no encontrado. Instalando jq..."
+        sudo apt-get update && sudo apt-get install -y jq
+    else
+        echo "✅ jq ya está instalado."
+    fi
+
+    # Reemplazar el valor de PORT en properties.json
+    echo "🔧 Actualizando el archivo properties.json con el nuevo puerto..."
+    jq --arg port "$PORT" '.PORT = $port' fixtures/properties.json > fixtures/properties_temp.json && mv fixtures/properties_temp.json fixtures/properties.json
+
+    # Ejecutar las pruebas con Cypress con el puerto actualizado
+    echo "🚀 Ejecutando pruebas con Cypress..."
+    PORT=$PORT npm run test --workspace=e2e/misw-4103-cypress
 }
 
 ########################################################################################## KRAKEN
