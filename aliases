@@ -475,39 +475,6 @@ replace_mail_config() {
 }
 
 ghost_run() {
-    # Parametros: version de Ghost y puerto
-    GHOST_VERSION=$1
-
-    # Eliminar los puntos de la versión y completar con ceros hasta 4 dígitos
-    PORT=$(echo "$GHOST_VERSION" | tr -d '.' | awk '{printf "%04d", $0}')
-
-    # Generar el nombre del contenedor e imagen basado en la versión y puerto
-    CONTAINER_NAME="ghost-${GHOST_VERSION}-${PORT}"
-    IMAGE_NAME="ghost:${GHOST_VERSION}"
-
-    echo "🧭 Verificando existencia del contenedor '${CONTAINER_NAME}'..."
-
-    if [ "$(sudo docker ps -a -q -f name=^/${CONTAINER_NAME}$)" ]; then
-        echo "⛔ Contenedor '${CONTAINER_NAME}' encontrado. Deteniendo y eliminando..."
-        sudo docker stop ${CONTAINER_NAME}
-        sudo docker rm ${CONTAINER_NAME}
-    else
-        echo "ℹ️ No existe un contenedor llamado '${CONTAINER_NAME}'."
-    fi
-
-    echo "🧹 Limpiando volúmenes sin uso..."
-    sudo docker volume prune -f
-
-    echo "📦 Levantando Ghost ${GHOST_VERSION} en el puerto ${PORT}..."
-    sudo docker run -d --name ${CONTAINER_NAME} -e NODE_ENV=development -p ${PORT}:2368 ${IMAGE_NAME}
-    echo "✅ Ghost está corriendo en http://localhost:${PORT}"
-   
-}
-
-kraken_run(){
-    npm run test --workspace=e2e/misw-4103-kraken
-}
-ghost_run() {
     # Parametros: versión de Ghost
     GHOST_VERSION=$1
 
@@ -542,8 +509,39 @@ ghost_run() {
 }
 
 
-cypress_reportes_unificar(){
-    find . -mindepth 2 -type f -name "*.png" -exec mv {} . \; && find . -mindepth 1 -type d -empty -delete
+cypress_run(){
+    # Recibir la versión de Ghost como parámetro
+    VERSION=$1
+
+    # Eliminar los puntos de la versión y completar con ceros hasta 4 dígitos a la derecha
+    PORT=$(echo "$VERSION" | tr -d '.' | awk '{printf "%04d", $0}')
+
+    # Verificar si jq está instalado, y si no lo está, instalarlo
+    if ! command -v jq &> /dev/null; then
+        echo "🔧 jq no encontrado. Instalando jq..."
+        sudo apt-get update && sudo apt-get install -y jq
+    else
+        echo "✅ jq ya está instalado."
+    fi
+
+    # Actualizar el archivo properties.json con el nuevo puerto y versión en un solo paso
+    echo "🔧 Actualizando el archivo properties.json con el nuevo puerto y versión..."
+    jq --arg port "$PORT" --arg version "$VERSION" \
+        '.PORT = $port | .VERSION = $version' e2e/misw-4103-cypress/cypress/fixtures/properties.json > e2e/misw-4103-cypress/cypress/fixtures/properties_temp.json && mv e2e/misw-4103-cypress/cypress/fixtures/properties_temp.json e2e/misw-4103-cypress/cypress/fixtures/properties.json
+
+    # Ejecutar las pruebas con Cypress, pasando solo la versión de Ghost como parámetro
+    echo "🚀 Ejecutando pruebas con Cypress usando la versión de Ghost ${VERSION}..."
+    VERSION=$VERSION npm run test --workspace=e2e/misw-4103-cypress
+
+    # Mover los archivos .png y eliminar directorios vacíos en el folder de screenshots
+    echo "🧹 Moviendo archivos .png y eliminando directorios vacíos en el folder de screenshots..."
+    find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 2 -type f -name "*.png" -exec mv {} e2e/misw-4103-cypress/cypress/screenshots/$VERSION \;
+    find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 1 -type d -empty -delete
+}
+
+
+kraken_run(){
+    npm run test --workspace=e2e/misw-4103-kraken
 }
 
 ########################################################################################## KRAKEN
