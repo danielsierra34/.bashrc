@@ -1,6 +1,15 @@
 #UPa
 #sudo 7z x reports.rar -o/opt/bitnami/apache2/htdocs/kraken
 #sudo apt install p7zip-full
+
+kraken_run(){
+    npm run test --workspace=e2e/misw-4103-kraken
+}
+cypress_run(){
+    npm run test --workspace=e2e/misw-4103-cypress
+}
+
+
 linux_version() {
     cat /etc/os-release
 }
