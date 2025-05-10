@@ -475,20 +475,14 @@ replace_mail_config() {
 }
 
 ghost_run() {
-    # Parametros: versión de Ghost
+    # Parámetro: versión de Ghost
     GHOST_VERSION=$1
 
-    # Eliminar los puntos de la versión
-    PORT=$(echo "$GHOST_VERSION" | tr -d '.')
-
-    # Asegurarse de que el puerto tenga 4 dígitos, completando con ceros a la derecha si es necesario
-    while [ ${#PORT} -lt 4 ]; do
-        PORT="${PORT}0"
-    done
-
-    # Generar el nombre del contenedor e imagen basado en la versión y puerto
-    CONTAINER_NAME="ghost-${GHOST_VERSION}-${PORT}"
+    # Nombre fijo para el contenedor y puerto estándar
+    CONTAINER_NAME="ghost"
     IMAGE_NAME="ghost:${GHOST_VERSION}"
+    HOST_PORT=2368
+    CONTAINER_PORT=2368
 
     echo "🧭 Verificando existencia del contenedor '${CONTAINER_NAME}'..."
 
@@ -503,39 +497,21 @@ ghost_run() {
     echo "🧹 Limpiando volúmenes sin uso..."
     sudo docker volume prune -f
 
-    echo "📦 Levantando Ghost ${GHOST_VERSION} en el puerto ${PORT}..."
-    sudo docker run -d --name ${CONTAINER_NAME} -e NODE_ENV=development -p ${PORT}:2368 ${IMAGE_NAME}
-    echo "✅ Ghost está corriendo en http://localhost:${PORT}"
+    echo "📦 Levantando Ghost ${GHOST_VERSION} en http://localhost:${HOST_PORT}..."
+    sudo docker run -d \
+        --name ${CONTAINER_NAME} \
+        -e NODE_ENV=development \
+        -p ${HOST_PORT}:${CONTAINER_PORT} \
+        ${IMAGE_NAME}
+
+    echo "✅ Ghost ${GHOST_VERSION} corriendo en http://localhost:${HOST_PORT}"
 }
 
 
-cypress_run(){
+cypress_run() {
     # Recibir la versión de Ghost como parámetro
     VERSION=$1
 
-    # Eliminar los puntos de la versión
-    VERSION_NOPUNTO=$(echo "$VERSION" | tr -d '.')
-
-    # Completar con ceros a la derecha hasta 4 caracteres
-    while [ ${#VERSION_NOPUNTO} -lt 4 ]; do
-        VERSION_NOPUNTO="${VERSION_NOPUNTO}0"
-    done
-    PORT=$VERSION_NOPUNTO
-
-    # Verificar si jq está instalado, y si no lo está, instalarlo
-    if ! command -v jq &> /dev/null; then
-        echo "🔧 jq no encontrado. Instalando jq..."
-        sudo apt-get update && sudo apt-get install -y jq
-    else
-        echo "✅ jq ya está instalado."
-    fi
-
-    # Actualizar el archivo properties.json con el nuevo puerto y versión en un solo paso
-    echo "🔧 Actualizando el archivo properties.json con el nuevo puerto y versión..."
-    jq --arg port "$PORT" --arg version "$VERSION" \
-        '.PORT = $port | .VERSION = $version' e2e/misw-4103-cypress/cypress/fixtures/properties.json > e2e/misw-4103-cypress/cypress/fixtures/properties_temp.json && mv e2e/misw-4103-cypress/cypress/fixtures/properties_temp.json e2e/misw-4103-cypress/cypress/fixtures/properties.json
-
-    # Ejecutar las pruebas con Cypress, pasando solo la versión de Ghost como parámetro
     echo "🚀 Ejecutando pruebas con Cypress usando la versión de Ghost ${VERSION}..."
     VERSION=$VERSION npm run test --workspace=e2e/misw-4103-cypress
 
@@ -544,6 +520,7 @@ cypress_run(){
     find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 2 -type f -name "*.png" -exec mv {} e2e/misw-4103-cypress/cypress/screenshots/$VERSION \;
     find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 1 -type d -empty -delete
 }
+
 
 
 kraken_run(){
