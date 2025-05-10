@@ -515,21 +515,21 @@ cypress_run() {
     echo "🚀 Ejecutando pruebas con Cypress usando la versión de Ghost ${VERSION}..."
     VERSION=$VERSION npm run test --workspace=e2e/misw-4103-cypress
 
-   echo "🧹 Moviendo archivos .png, renombrándolos y eliminando directorios vacíos en el folder de screenshots..."
+    echo "🧹 Renombrando y moviendo archivos .png, y eliminando directorios vacíos..."
 
-    # Encontrar todas las imágenes .png dentro de subdirectorios, renombrarlas y moverlas al root
     find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 2 -type f -name "*.png" -exec bash -c '
       for file; do
-        # Obtener el nombre de la carpeta que contiene la imagen
-        folder_name=$(basename "$(dirname "$file")")
-        # Renombrar la imagen con el nombre de la carpeta
-        mv "$file" "e2e/misw-4103-cypress/cypress/screenshots/$VERSION/$folder_name.png"
+        folder_path=$(dirname "$file")
+        folder_name=$(basename "$folder_path")
+        ext="${file##*.}"
+        new_name="${folder_name}.${ext}"
+        mv "$file" "e2e/misw-4103-cypress/cypress/screenshots/'"$VERSION"'/$new_name"
       done
     ' bash {} +
-    
-    # Eliminar los directorios vacíos
+
     find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 1 -type d -empty -delete
 }
+
 
 
 
