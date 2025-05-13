@@ -621,7 +621,7 @@ agregar_x() {
 
 quitar_x(){
     #!/bin/bash   
-    carpeta="ruta/a/tu/carpeta"  # Cambia esto por la ruta real    
+    carpeta="."  # Cambia esto por la ruta real    
     for archivo in "$carpeta"/*.x; do
       if [ -f "$archivo" ]; then
         nuevo_nombre="${archivo%.x}"
