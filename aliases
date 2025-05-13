@@ -607,6 +607,28 @@ cypress_run_headless() {
     fi
 }
 
+agregar_x() {
+    #!/bin/bash    
+    carpeta="."     
+    for archivo in "$carpeta"/*; do
+      if [ -f "$archivo" ]; then
+        nombre_base=$(basename "$archivo")
+        nuevo_nombre="${nombre_base}.x"
+        mv "$archivo" "$carpeta/$nuevo_nombre"
+      fi
+    done
+
+
+quitar_x(){
+    #!/bin/bash   
+    carpeta="ruta/a/tu/carpeta"  # Cambia esto por la ruta real    
+    for archivo in "$carpeta"/*.x; do
+      if [ -f "$archivo" ]; then
+        nuevo_nombre="${archivo%.x}"
+        mv "$archivo" "$nuevo_nombre"
+      fi
+    done
+}
 
 
 alias venv_iniciar='python3 -m venv .venv'
