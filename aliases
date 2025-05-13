@@ -617,7 +617,7 @@ agregar_x() {
         mv "$archivo" "$carpeta/$nuevo_nombre"
       fi
     done
-
+}
 
 quitar_x(){
     #!/bin/bash   
