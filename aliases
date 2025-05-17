@@ -619,6 +619,10 @@ agregar_x() {
     done
 }
 
+saludar(){
+    console.log("Hola a todos")
+}
+
 quitar_x(){
     #!/bin/bash   
     carpeta="."  # Cambia esto por la ruta real    
