@@ -620,7 +620,7 @@ agregar_x() {
 }
 
 saludar(){
-    console.log("Hola a todos")
+    console.log('Hola a todos')
 }
 
 quitar_x(){
