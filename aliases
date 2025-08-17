@@ -157,6 +157,26 @@ EOF
     pyenv --version
 }
 
+pyenv_local() {
+  local version=$1
+  if [ -z "$version" ]; then
+    echo "❌ Debes pasar una versión. Ejemplo: set_pyenv_local 3.11.9"
+    return 1
+  fi
+
+  # Verificar si ya está instalada
+  if ! pyenv versions --bare | grep -q "^${version}\$"; then
+    echo "🔍 Python $version no está instalado. Instalando..."
+    pyenv install "$version"
+  else
+    echo "✅ Python $version ya está instalado."
+  fi
+
+  # Configurar como local
+  pyenv local "$version"
+  echo "📌 Se configuró Python $version como versión local en $(pwd)"
+}
+
 ########################################################################################## NPM
 npm_list(){
     npm list -g --depth=0
