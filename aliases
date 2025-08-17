@@ -335,10 +335,12 @@ fastapi_install() {
 ########################################################################################## REQUIREMENTS
 
 requirements_install() {
-    echo "📦 Instalando dependencias desde requirements.txt..."
+    REQ_FILE=${1:-"requirements.txt"}  # Usa requirements.txt por defecto si no se pasa nada
+
+    echo "📦 Instalando dependencias desde $REQ_FILE..."
     pip install --upgrade pip
-    pip install -r requirements.txt
-    echo "✅ Dependencias instaladas."
+    pip install -r "$REQ_FILE"
+    echo "✅ Dependencias instaladas desde $REQ_FILE."
 }
 
 requirements_generate() {
