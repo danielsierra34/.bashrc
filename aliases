@@ -123,6 +123,40 @@ ssh_activar() {
 tree_list(){
     tree -I 'node_modules|venv|.git|__pycache__|dist|build|.pytest_cache|.vscode|.idea|coverage' -a
 }
+########################################################################################## PYTHON
+pyenv_install() {
+    echo "🔧 Actualizando paquetes..."
+    sudo apt update -y
+
+    echo "📦 Instalando dependencias..."
+    sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+        libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm \
+        libncurses5-dev libncursesw5-dev xz-utils tk-dev \
+        libffi-dev liblzma-dev git
+
+    echo "⬇️ Instalando pyenv..."
+    curl https://pyenv.run | bash
+
+    echo "⚙️ Configurando variables en ~/.bashrc..."
+    if ! grep -q 'pyenv init' ~/.bashrc; then
+        cat <<'EOF' >> ~/.bashrc
+
+# >>> pyenv configuration >>>
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+eval "$(pyenv virtualenv-init -)"
+# <<< pyenv configuration <<<
+EOF
+    fi
+
+    echo "🔄 Recargando configuración..."
+    source ~/.bashrc
+
+    echo "✅ Instalación completada. Versión de pyenv:"
+    pyenv --version
+}
+
 ########################################################################################## NPM
 npm_list(){
     npm list -g --depth=0
@@ -177,6 +211,8 @@ git_name() {
     git config --global user.name "$1"
     echo "Nombre de Git configurado como: $1"
 }
+
+
 
 ########################################################################################## DOCKER
 docker_networks(){
