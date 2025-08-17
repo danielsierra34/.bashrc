@@ -204,6 +204,26 @@ pyenv_venv() {
     echo "👉 Actívalo con: source $ENV_DIR/bin/activate"
 }
 
+pyenv_activate_venv() {
+    if [ -z "$1" ]; then
+        echo "❌ Debes pasar el nombre del environment como parámetro"
+        echo "👉 Ejemplo: activate_env venv"
+        return 1
+    fi
+
+    ENV_NAME="$1"
+    ENV_DIR=".$ENV_NAME"
+
+    if [ ! -d "$ENV_DIR" ]; then
+        echo "❌ El environment $ENV_DIR no existe."
+        echo "👉 Primero créalo con: make_env $ENV_NAME"
+        return 1
+    fi
+
+    echo "⚡ Activando environment: $ENV_DIR ..."
+    source "$ENV_DIR/bin/activate"
+}
+
 
 ########################################################################################## NPM
 npm_list(){
