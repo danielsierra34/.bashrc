@@ -219,6 +219,96 @@ pyenv_activate_venv() {
     source "$ENV_DIR/bin/activate"
 }
 
+pyenv_gitignore() {
+  local file=".gitignore"
+
+  if [ -f "$file" ]; then
+    echo "⚠️ Ya existe un $file en $(pwd). No se sobrescribió."
+    return 1
+  fi
+
+  cat > "$file" <<EOF
+# ========================
+# Archivos Python compilados
+# ========================
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+
+# ========================
+# Entornos virtuales
+# ========================
+.env
+.venv/
+env/
+venv/
+ENV/
+
+# ========================
+# Bases de datos
+# ========================
+*.db
+*.sqlite3
+
+# ========================
+# Archivos de pruebas
+# ========================
+.coverage
+coverage.xml
+*.cover
+*.py,cover
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+
+# ========================
+# Distribución / empaquetado
+# ========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ========================
+# Logs
+# ========================
+*.log
+
+# ========================
+# IDEs / Editores
+# ========================
+.vscode/
+.idea/
+
+# ========================
+# Archivos del sistema
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# Imágenes y binarios
+# ========================
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+
+# ========================
+# Otros
+# ========================
+*.bak
+*.tmp
+EOF
+
+  echo "✅ Archivo $file creado en $(pwd)"
+}
+
+
 ########################################################################################## FASTAPI
 
 fastapi_install() {
