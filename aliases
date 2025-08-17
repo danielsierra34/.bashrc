@@ -25,13 +25,8 @@ python_serve(){
     python -m http.server 8000
 }
 
-requirements_generate(){
-    pip freeze > requirements.txt
-}
 
-requirements_install(){
-    pip install -r requirements.txt
-}
+
 
 flask_run() {
     clear
@@ -222,6 +217,37 @@ pyenv_activate_venv() {
 
     echo "⚡ Activando environment: $ENV_DIR ..."
     source "$ENV_DIR/bin/activate"
+}
+
+########################################################################################## FASTAPI
+
+fastapi_install() {
+    if [ -z "$VIRTUAL_ENV" ]; then
+        echo "⚠️ No hay ningún entorno virtual activado."
+        echo "👉 Primero activa tu venv con: source .venv/bin/activate"
+        return 1
+    fi
+
+    echo "📦 Instalando FastAPI y Uvicorn en $VIRTUAL_ENV..."
+    pip install --upgrade pip
+    pip install fastapi uvicorn
+
+    echo "🎉 FastAPI y Uvicorn instalados correctamente"
+}
+
+########################################################################################## REQUIREMENTS
+
+requirements_install() {
+    echo "📦 Instalando dependencias desde requirements.txt..."
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    echo "✅ Dependencias instaladas."
+}
+
+requirements_generate() {
+    echo "📄 Generando requirements.txt..."
+    pip freeze > requirements.txt
+    echo "✅ requirements.txt actualizado."
 }
 
 
