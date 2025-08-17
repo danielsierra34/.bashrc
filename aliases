@@ -177,6 +177,16 @@ pyenv_local() {
   echo "📌 Se configuró Python $version como versión local en $(pwd)"
 }
 
+pyenv_version() {
+  if ! command -v pyenv >/dev/null 2>&1; then
+    echo "❌ pyenv no está instalado o no está en el PATH."
+    return 1
+  fi
+
+  echo "🐍 Versión activa de Python con pyenv:"
+  pyenv exec python -V
+}
+
 ########################################################################################## NPM
 npm_list(){
     npm list -g --depth=0
