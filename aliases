@@ -2,15 +2,7 @@
 #sudo 7z x reports.rar -o/opt/bitnami/apache2/htdocs/kraken
 #sudo apt install p7zip-full
 
-kraken_run(){
-    npm run test --workspace=e2e/misw-4103-kraken
-}
-cypress_run(){
-    npm run test --workspace=e2e/misw-4103-cypress
-}
-cypress_reportes_unificar(){
-    find . -mindepth 2 -type f -name "*.png" -exec mv {} . \; && find . -mindepth 1 -type d -empty -delete
-}
+
 
 
 linux_version() {
@@ -483,31 +475,68 @@ replace_mail_config() {
 }
 
 ghost_run() {
-    echo "🧭 Verificando existencia del contenedor 'ghost'..."
+    # Parámetro: versión de Ghost
+    GHOST_VERSION=$1
 
-    if [ "$(sudo docker ps -a -q -f name=^/ghost$)" ]; then
-        echo "⛔ Contenedor 'ghost' encontrado. Deteniendo y eliminando..."
-        sudo docker stop ghost
-        sudo docker rm ghost
+    # Nombre fijo para el contenedor y puerto estándar
+    CONTAINER_NAME="ghost"
+    IMAGE_NAME="ghost:${GHOST_VERSION}"
+    HOST_PORT=2368
+    CONTAINER_PORT=2368
+
+    echo "🧭 Verificando existencia del contenedor '${CONTAINER_NAME}'..."
+
+    if [ "$(sudo docker ps -a -q -f name=^/${CONTAINER_NAME}$)" ]; then
+        echo "⛔ Contenedor '${CONTAINER_NAME}' encontrado. Deteniendo y eliminando..."
+        sudo docker stop ${CONTAINER_NAME}
+        sudo docker rm ${CONTAINER_NAME}
     else
-        echo "ℹ️ No existe un contenedor llamado 'ghost'."
+        echo "ℹ️ No existe un contenedor llamado '${CONTAINER_NAME}'."
     fi
 
     echo "🧹 Limpiando volúmenes sin uso..."
     sudo docker volume prune -f
 
-    echo "📦 Levantando Ghost limpio en el puerto 2368..."
-    sudo docker run -d --name ghost -e NODE_ENV=development -p 2368:2368 ghost:5.111
-    echo "✅ Ghost está corriendo en http://localhost:2368"
+    echo "📦 Levantando Ghost ${GHOST_VERSION} en http://localhost:${HOST_PORT}..."
+    sudo docker run -d \
+        --name ${CONTAINER_NAME} \
+        -e NODE_ENV=development \
+        -p ${HOST_PORT}:${CONTAINER_PORT} \
+        ${IMAGE_NAME}
 
-    #sleep 10
-
-    #echo "🔍 Instalando jq..."
-    #install_jq_in_container
-
-    #echo "🔧 Reemplazando configuración de mail..."
-    #replace_mail_config "/var/lib/ghost/config.production.json"
+    echo "✅ Ghost ${GHOST_VERSION} corriendo en http://localhost:${HOST_PORT}"
 }
+
+
+cypress_run() {
+    # Recibir la versión de Ghost como parámetro
+    VERSION=$1
+
+    echo "🚀 Ejecutando pruebas con Cypress usando la versión de Ghost ${VERSION}..."
+    VERSION=$VERSION npm run test --workspace=e2e/misw-4103-cypress
+
+    echo "🧹 Renombrando y moviendo archivos .png, y eliminando directorios vacíos..."
+
+    find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 2 -type f -name "*.png" -exec bash -c '
+      for file; do
+        folder_path=$(dirname "$file")
+        folder_name=$(basename "$folder_path")
+        ext="${file##*.}"
+        new_name="${folder_name}.${ext}"
+        mv "$file" "e2e/misw-4103-cypress/cypress/screenshots/'"$VERSION"'/$new_name"
+      done
+    ' bash {} +
+
+    find e2e/misw-4103-cypress/cypress/screenshots/$VERSION -mindepth 1 -type d -empty -delete
+}
+
+
+
+
+kraken_run(){
+    npm run test --workspace=e2e/misw-4103-kraken
+}
+
 ########################################################################################## KRAKEN
 kraken_install(){
     npm install kraken-node -g
@@ -578,6 +607,32 @@ cypress_run_headless() {
     fi
 }
 
+agregar_x() {
+    #!/bin/bash    
+    carpeta="."     
+    for archivo in "$carpeta"/*; do
+      if [ -f "$archivo" ]; then
+        nombre_base=$(basename "$archivo")
+        nuevo_nombre="${nombre_base}.x"
+        mv "$archivo" "$carpeta/$nuevo_nombre"
+      fi
+    done
+}
+
+saludar(){
+    echo "Hola a todos"
+}
+
+quitar_x(){
+    #!/bin/bash   
+    carpeta="."  # Cambia esto por la ruta real    
+    for archivo in "$carpeta"/*.x; do
+      if [ -f "$archivo" ]; then
+        nuevo_nombre="${archivo%.x}"
+        mv "$archivo" "$nuevo_nombre"
+      fi
+    done
+}
 
 
 alias venv_iniciar='python3 -m venv .venv'
