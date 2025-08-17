@@ -303,7 +303,7 @@ EOF
   echo "✅ Archivo $file sobrescrito en $(pwd)"
 }
 
-pyenv_create_config() {
+pyenv_create_settings() {
     CONFIG_DIR=".vscode"
     CONFIG_FILE="$CONFIG_DIR/settings.json"
 
