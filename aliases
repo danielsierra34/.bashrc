@@ -222,11 +222,6 @@ pyenv_activate_venv() {
 pyenv_gitignore() {
   local file=".gitignore"
 
-  if [ -f "$file" ]; then
-    echo "⚠️ Ya existe un $file en $(pwd). No se sobrescribió."
-    return 1
-  fi
-
   cat > "$file" <<EOF
 # ========================
 # Archivos Python compilados
@@ -305,8 +300,9 @@ Thumbs.db
 *.tmp
 EOF
 
-  echo "✅ Archivo $file creado en $(pwd)"
+  echo "✅ Archivo $file sobrescrito en $(pwd)"
 }
+
 
 
 ########################################################################################## FASTAPI
