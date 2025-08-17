@@ -187,6 +187,24 @@ pyenv_version() {
   pyenv exec python -V
 }
 
+pyenv_venv() {
+    if [ -z "$1" ]; then
+        echo "❌ Debes pasar el nombre del environment como parámetro"
+        echo "👉 Ejemplo: make_env myproject"
+        return 1
+    fi
+
+    ENV_NAME="$1"
+    ENV_DIR=".$ENV_NAME"
+
+    echo "🚀 Creando environment en $ENV_DIR ..."
+    pyenv exec python -m venv "$ENV_DIR"
+
+    echo "✅ Environment creado: $ENV_DIR"
+    echo "👉 Actívalo con: source $ENV_DIR/bin/activate"
+}
+
+
 ########################################################################################## NPM
 npm_list(){
     npm list -g --depth=0
