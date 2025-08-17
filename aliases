@@ -302,6 +302,31 @@ EOF
 
   echo "✅ Archivo $file sobrescrito en $(pwd)"
 }
+
+pyenv_create_config() {
+    CONFIG_DIR=".vscode"
+    CONFIG_FILE="$CONFIG_DIR/settings.json"
+
+    # Crear carpeta .vscode si no existe
+    mkdir -p "$CONFIG_DIR"
+
+    # Crear archivo settings.json con la configuración
+    cat > "$CONFIG_FILE" <<EOL
+{
+    "[python]": {
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit",
+            "source.fixAll": "explicit"
+        }
+    },
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "charliermarsh.ruff"
+}
+EOL
+
+    echo "✅ Archivo de configuración creado en $CONFIG_FILE"
+}
+
 ########################################################################################## UVICORN
 uvicorn_run() {
   PACKAGE=${1:-"storeapi"}       # Nombre del paquete (implícitamente usa main:app)
