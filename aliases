@@ -331,6 +331,10 @@ pycache_delete(){
     find . -type d -name "__pycache__" -exec rm -r {} +
 }
 
+pytestcache_delete(){
+    find . -type d -name "__pycache__" -exec rm -r {} +
+}
+
 ########################################################################################## UVICORN
 uvicorn_run() {
   PACKAGE=${1:-"storeapi"}       # Nombre del paquete (implícitamente usa main:app)
