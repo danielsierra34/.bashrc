@@ -70,7 +70,7 @@ ssh_iniciar() {
     eval "$(ssh-agent -s)"
 }
 
-ssh_generate() {
+ssh_generar() {
   if [ -z "$1" ]; then
     echo "❌ Error: Debes proporcionar un nombre para la clave."
     return 1
