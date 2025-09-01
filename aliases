@@ -118,6 +118,10 @@ ssh_activar() {
 tree_list(){
     tree -I 'node_modules|venv|.git|__pycache__|dist|build|.pytest_cache|.vscode|.idea|coverage' -a
 }
+
+tree_install(){
+    sudo apt install tree -y
+}
 ########################################################################################## PYTHON
 pyenv_install() {
     echo "🔧 Actualizando paquetes..."
