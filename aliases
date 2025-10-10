@@ -2,8 +2,31 @@
 #sudo 7z x reports.rar -o/opt/bitnami/apache2/htdocs/kraken
 #sudo apt install p7zip-full
 
+fastpush() {
+  # Si no se pasa mensaje, error y salir
+  if [ -z "$1" ]; then
+    echo "❌  Debes pasar un mensaje de commit."
+    echo "👉  Uso: fastpush \"mensaje del commit\""
+    return 1
+  fi
 
+  # Guarda el mensaje completo (por si contiene espacios)
+  local msg="$*"
 
+  echo "📦 Agregando archivos..."
+  git add .
+
+  echo "📝 Commit con mensaje: \"$msg\""
+  git commit -m "$msg" || {
+    echo "⚠️  No hay cambios para commitear."
+    return 0
+  }
+
+  echo "🚀 Haciendo push..."
+  git push
+
+  echo "✅  Fastpush completado."
+}
 
 linux_version() {
     cat /etc/os-release
