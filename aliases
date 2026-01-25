@@ -982,8 +982,127 @@ quitar_x(){
 }
 ########################################################################################## OLLAMA
 ollama_install(){
+  sudo apt-get install zstd
   curl -fsSL https://ollama.com/install.sh | sh
 }
+
+ollama_generate_modelfiles () {
+  local BASE_MODEL="gemma3:1b"
+  local OUT_DIR="$(pwd)"
+
+  echo "📁 Directorio actual: $OUT_DIR"
+  echo "🧠 Modelo base: $BASE_MODEL"
+  echo "🚀 Generando Modelfiles aquí..."
+
+  # 1) Chat general
+  cat > Modelfile.gen-chat <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente general, claro y conciso.
+Responde en español.
+Evita relleno.
+"""
+
+PARAMETER temperature 0.6
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 2) Desarrollo de software
+  cat > Modelfile.gen-dev <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente de desarrollo de software.
+Entrega soluciones claras y ejecutables.
+Prioriza buenas prácticas.
+"""
+
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 3) Código estricto
+  cat > Modelfile.gen-code <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente enfocado en programación.
+Código correcto, minimal y claro.
+Incluye ejemplo breve si aplica.
+"""
+
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 4) Estudio de LLMs
+  cat > Modelfile.gen-llm <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente académico para estudiar Grandes Modelos de Lenguaje.
+Explica conceptos con ejemplos simples.
+Mantén rigor sin exceso matemático.
+"""
+
+PARAMETER temperature 0.35
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 5) Razonamiento guiado
+  cat > Modelfile.gen-reason <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente para razonamiento paso a paso.
+Divide problemas en pasos claros.
+Declara supuestos.
+"""
+
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 6) Escritura técnica / académica
+  cat > Modelfile.gen-docs <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Redactor técnico y académico.
+Texto claro, estructurado y conciso.
+"""
+
+PARAMETER temperature 0.4
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 7) Prompt lab
+  cat > Modelfile.gen-promptlab <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente para experimentar con prompts.
+Propone variantes y mejoras.
+Evalúa claridad y consistencia.
+"""
+
+PARAMETER temperature 0.5
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  echo "✅ Modelfiles creados en:"
+  echo "  $OUT_DIR"
+  ls -1 Modelfile.gen-* 2>/dev/null
+}
+
 
 
 alias venv_iniciar='python3 -m venv .venv'
