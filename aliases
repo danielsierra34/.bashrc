@@ -1065,6 +1065,128 @@ ollama_pull () {
   echo "✅ Instalado: $selected"
 }
 
+ollama_modelfiles_generate () {
+  local BASE_MODEL="${1:-gemma3:1b}"
+  local ROOT_DIR="$(pwd)/ollama"
+  local MF_DIR="$ROOT_DIR/modelfiles"
+
+  echo "📁 Proyecto: $(pwd)"
+  echo "📂 Carpeta Ollama: $ROOT_DIR"
+  echo "📄 Carpeta Modelfiles: $MF_DIR"
+  echo "🧠 Modelo base (FROM): $BASE_MODEL"
+  echo
+
+  # Crear estructura de carpetas
+  mkdir -p "$MF_DIR"
+
+  # 1) Chat general
+  cat > "$MF_DIR/Modelfile.gen-chat" <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente general, claro y conciso.
+Responde en español.
+Evita relleno.
+"""
+
+PARAMETER temperature 0.6
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 2) Desarrollo
+  cat > "$MF_DIR/Modelfile.gen-dev" <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente de desarrollo de software.
+Entrega soluciones ejecutables y buenas prácticas.
+Explica solo lo necesario.
+"""
+
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 3) Código estricto
+  cat > "$MF_DIR/Modelfile.gen-code" <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente enfocado en programación.
+Código correcto, minimal y claro.
+Incluye ejemplo breve si aplica.
+"""
+
+PARAMETER temperature 0.2
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 4) Estudio de LLMs
+  cat > "$MF_DIR/Modelfile.gen-llm" <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente académico para estudiar Grandes Modelos de Lenguaje.
+Explica transformers, attention, fine-tuning, RLHF y prompting con ejemplos simples.
+"""
+
+PARAMETER temperature 0.35
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 5) Razonamiento
+  cat > "$MF_DIR/Modelfile.gen-reason" <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente para razonamiento paso a paso.
+Divide problemas en pasos claros.
+Declara supuestos.
+"""
+
+PARAMETER temperature 0.3
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 6) Documentación
+  cat > "$MF_DIR/Modelfile.gen-docs" <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Redactor técnico y académico.
+Texto claro, estructurado y conciso.
+"""
+
+PARAMETER temperature 0.4
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  # 7) Prompt lab
+  cat > "$MF_DIR/Modelfile.gen-promptlab" <<EOF
+FROM ${BASE_MODEL}
+
+SYSTEM """
+Asistente para experimentar con prompts.
+Propone variantes y mejoras.
+Evalúa claridad y consistencia.
+"""
+
+PARAMETER temperature 0.5
+PARAMETER top_p 0.9
+PARAMETER num_ctx 4096
+EOF
+
+  echo "✅ Modelfiles creados en:"
+  ls -1 "$MF_DIR"
+}
+
+
 
 
 
