@@ -1211,44 +1211,69 @@ ollama_toolkit () {
   }
 
   # ---------- Step 1: Remote models (search) ----------
-  _remote_search_and_install () {
-    if ! _safe_has_cmd ollama; then
-      echo "❌ 'ollama' no está en PATH."
-      return 1
-    fi
+ _remote_search_and_install () {
+  if ! command -v ollama >/dev/null 2>&1; then
+    echo "❌ 'ollama' no está disponible."
+    return 1
+  fi
 
-    local query="${1:-}"
-    if [ -z "$query" ]; then
-      echo "🔎 Búsqueda de modelos (remote). Ejemplos: gemma, llama, qwen, mistral"
-      read -rp "Escribe un término de búsqueda: " query
-      query="${query:-gemma}"
-    fi
+  local query
+  echo "🔎 Búsqueda de modelos (remote)"
+  read -rp "Escribe un término (ej: gemma, llama, qwen, mistral): " query
+  query="${query:-gemma}"
 
-    # ollama search output varies by version; we try to extract first column as model name.
-    mapfile -t remote_models < <(ollama search "$query" 2>/dev/null | awk 'NR>1 {print $1}' | head -n 20)
+  echo
+  echo "🌐 Buscando modelos para: '$query' ..."
+  echo
 
-    if [ "${#remote_models[@]}" -eq 0 ]; then
-      echo "❌ No pude obtener resultados con 'ollama search $query'."
-      echo "   Tip: intenta otro término (ej: llama, qwen, mistral, gemma)."
-      return 1
-    fi
+  # ⚠️ Desactivar salida automática por error SOLO aquí
+  set +e
+  local raw_output
+  raw_output="$(ollama search "$query" 2>/dev/null)"
+  local status=$?
+  set -e
 
-    echo
-    echo "🌐 Modelos encontrados (remote) para '$query' (top ${#remote_models[@]}):"
-    echo
-    for i in "${!remote_models[@]}"; do
-      local m="${remote_models[$i]}"
-      printf "  [%d] %-24s — %s\n" "$((i+1))" "$m" "$(_desc_model "$m")"
-    done
+  if [ $status -ne 0 ] || [ -z "$raw_output" ]; then
+    echo "❌ No se encontraron modelos o hubo un error en la búsqueda."
+    echo "👉 Intenta con otro término (ej: llama, qwen, mistral)"
+    return 0
+  fi
 
-    echo
-    local selected
-    selected="$(_select_from_list remote_models "👉 Selecciona un modelo para instalar (1-${#remote_models[@]}):")" || return 1
-    echo
-    echo "⬇️  Instalando: $selected"
-    ollama pull "$selected"
-    echo "✅ Instalado: $selected"
-  }
+  mapfile -t remote_models < <(echo "$raw_output" | awk 'NR>1 {print $1}' | head -n 20)
+
+  if [ "${#remote_models[@]}" -eq 0 ]; then
+    echo "❌ No se encontraron modelos con '$query'."
+    return 0
+  fi
+
+  echo "📦 Modelos encontrados:"
+  echo
+
+  for i in "${!remote_models[@]}"; do
+    local m="${remote_models[$i]}"
+    printf "  [%d] %-24s — %s\n" "$((i+1))" "$m" "$(_desc_model "$m")"
+  done
+
+  echo
+  read -rp "👉 Selecciona un modelo para instalar (1-${#remote_models[@]}) o Enter para cancelar: " choice
+
+  if [ -z "$choice" ]; then
+    echo "ℹ️  Cancelado."
+    return 0
+  fi
+
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#remote_models[@]} )); then
+    echo "❌ Selección inválida."
+    return 0
+  fi
+
+  local selected="${remote_models[$((choice-1))]}"
+  echo
+  echo "⬇️  Instalando: $selected"
+  ollama pull "$selected"
+  echo "✅ Instalado: $selected"
+}
+
 
   # ---------- Step 2: Generate Modelfiles in current dir ----------
   _generate_modelfiles_here () {
