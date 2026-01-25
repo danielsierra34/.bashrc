@@ -980,6 +980,10 @@ quitar_x(){
       fi
     done
 }
+########################################################################################## OLLAMA
+ollama_install(){
+  curl -fsSL https://ollama.com/install.sh | sh
+}
 
 
 alias venv_iniciar='python3 -m venv .venv'
