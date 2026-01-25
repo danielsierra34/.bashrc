@@ -1103,6 +1103,45 @@ EOF
   ls -1 Modelfile.gen-* 2>/dev/null
 }
 
+ollama_select_model () {
+  local models
+  local count
+  local choice
+
+  # Obtener lista de modelos (solo nombres)
+  mapfile -t models < <(ollama list | awk 'NR>1 {print $1}')
+
+  if [ "${#models[@]}" -eq 0 ]; then
+    echo "❌ No hay modelos disponibles en Ollama."
+    return 1
+  fi
+
+  echo "🧠 Modelos disponibles:"
+  echo
+
+  for i in "${!models[@]}"; do
+    printf "  [%d] %s\n" "$((i+1))" "${models[$i]}"
+  done
+
+  echo
+  read -rp "👉 Selecciona un modelo (1-${#models[@]}): " choice
+
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#models[@]} )); then
+    echo "❌ Selección inválida."
+    return 1
+  fi
+
+  local selected="${models[$((choice-1))]}"
+
+  echo
+  echo "✅ Modelo seleccionado: $selected"
+
+  # Export opcional
+  export OLLAMA_SELECTED_MODEL="$selected"
+  echo "🔧 Variable exportada: OLLAMA_SELECTED_MODEL=$selected"
+}
+
+
 
 
 alias venv_iniciar='python3 -m venv .venv'
