@@ -1253,6 +1253,117 @@ EOF
   _mf_print_hr
 }
 
+ollama_model_generate () {
+  # ---- Config ----
+  local MF_DIR="$HOME/llama/modelfiles"
+  local TMP_DIR="${TMPDIR:-/tmp}"
+  local BASE_MODEL="" MF_PATH="" NEW_NAME=""
+  local -a MODELS=() FILES=()
+
+  _omc_hr() { printf '%*s\n' "${COLUMNS:-80}" '' | tr ' ' '-'; }
+  _omc_title() { _omc_hr; echo "🦙 Ollama Model Creator (base + Modelfile)"; _omc_hr; }
+  _omc_die() { echo "❌ $*"; return 1; }
+
+  # Menú genérico: recibe prompt + array name, retorna REPLY=elemento elegido
+  _omc_menu() {
+    local prompt="$1"
+    local arr_name="$2"
+    local -n _opts="$arr_name"
+    echo
+    echo "$prompt"
+    local i=1
+    for opt in "${_opts[@]}"; do
+      printf "  %2d) %s\n" "$i" "$opt"
+      i=$((i+1))
+    done
+    while true; do
+      read -r -p "Selecciona (1-${#_opts[@]}): " ans
+      if [[ "$ans" =~ ^[0-9]+$ ]] && (( ans>=1 && ans<=${#_opts[@]} )); then
+        REPLY="${_opts[$((ans-1))]}"
+        return 0
+      fi
+      echo "❌ Opción inválida."
+    done
+  }
+
+  # ---- Checks ----
+  command -v ollama >/dev/null 2>&1 || _omc_die "No encuentro 'ollama' en PATH."
+  [[ -d "$MF_DIR" ]] || _omc_die "No existe la carpeta de Modelfiles: $MF_DIR"
+
+  _omc_title
+
+  # ---- Cargar modelos locales ----
+  # `ollama list` imprime cabecera + columnas; tomamos la primera columna (NAME)
+  mapfile -t MODELS < <(ollama list 2>/dev/null | awk 'NR>1 && $1!="" {print $1}')
+  (( ${#MODELS[@]} > 0 )) || _omc_die "No hay modelos locales. Primero haz: ollama pull <modelo>"
+
+  _omc_menu "Elige el MODELO BASE (ya descargado):" MODELS
+  BASE_MODEL="$REPLY"
+
+  # ---- Cargar Modelfiles disponibles ----
+  # Mostramos solo el nombre de archivo para el menú
+  mapfile -t FILES < <(find "$MF_DIR" -maxdepth 1 -type f -name 'Modelfile.*' -printf '%f\n' | sort)
+  (( ${#FILES[@]} > 0 )) || _omc_die "No encuentro Modelfiles en $MF_DIR (esperaba Modelfile.*)"
+
+  _omc_menu "Elige el Modelfile (en $MF_DIR):" FILES
+  MF_PATH="$MF_DIR/$REPLY"
+
+  # ---- Nombre del modelo final ----
+  echo
+  read -r -p "Nombre del NUEVO modelo (único input) [${REPLY#Modelfile.}]: " NEW_NAME
+  NEW_NAME="${NEW_NAME:-${REPLY#Modelfile.}}"
+  NEW_NAME="$(echo "$NEW_NAME" | tr -cd 'a-zA-Z0-9._:-')"
+  [[ -n "$NEW_NAME" ]] || _omc_die "Nombre inválido."
+
+  # Confirmar si ya existe
+  if ollama list 2>/dev/null | awk 'NR>1 {print $1}' | grep -Fxq "$NEW_NAME"; then
+    echo "⚠️ Ya existe un modelo llamado: $NEW_NAME"
+    read -r -p "¿Sobrescribir (recrear) ese modelo? (y/N): " yn
+    [[ "${yn,,}" == "y" ]] || _omc_die "Cancelado."
+  fi
+
+  # ---- Crear un Modelfile temporal (sin tocar el original) ----
+  local TMP_MF="$TMP_DIR/Modelfile.${NEW_NAME}.$$"
+  # Reemplaza SOLO si existe el placeholder exacto
+  if grep -q '^FROM __BASE_MODEL__' "$MF_PATH"; then
+    sed "s|^FROM __BASE_MODEL__\$|FROM ${BASE_MODEL}|" "$MF_PATH" > "$TMP_MF"
+  else
+    # Si no hay placeholder, lo dejamos como está (por si ya tiene FROM real)
+    cp "$MF_PATH" "$TMP_MF"
+  fi
+
+  echo
+  _omc_hr
+  echo "🧩 Combinando:"
+  echo "  Base:     $BASE_MODEL"
+  echo "  Modelfile: $MF_PATH"
+  echo "  Nuevo:    $NEW_NAME"
+  _omc_hr
+  echo
+
+  # ---- Crear modelo ----
+  if ! ollama create "$NEW_NAME" -f "$TMP_MF"; then
+    rm -f "$TMP_MF"
+    _omc_die "Falló ollama create. Revisa que el modelo base exista y el Modelfile sea válido."
+  fi
+
+  rm -f "$TMP_MF"
+
+  echo
+  _omc_hr
+  echo "✅ Modelo creado: $NEW_NAME"
+  echo "▶️  Probar ahora:"
+  echo "    ollama run $NEW_NAME"
+  _omc_hr
+
+  # Ejecutar opcional
+  echo
+  read -r -p "¿Quieres ejecutarlo ahora? (y/N): " runnow
+  if [[ "${runnow,,}" == "y" ]]; then
+    ollama run "$NEW_NAME"
+  fi
+}
+
 
 
 
