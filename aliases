@@ -1103,43 +1103,43 @@ EOF
   ls -1 Modelfile.gen-* 2>/dev/null
 }
 
-ollama_select_model () {
-  local models
-  local count
+ollama_select_modelfile () {
+  local modelfiles
   local choice
 
-  # Obtener lista de modelos (solo nombres)
-  mapfile -t models < <(ollama list | awk 'NR>1 {print $1}')
+  # Buscar Modelfiles en el directorio actual
+  mapfile -t modelfiles < <(ls Modelfile.* 2>/dev/null)
 
-  if [ "${#models[@]}" -eq 0 ]; then
-    echo "❌ No hay modelos disponibles en Ollama."
+  if [ "${#modelfiles[@]}" -eq 0 ]; then
+    echo "❌ No se encontraron Modelfiles en el directorio actual."
     return 1
   fi
 
-  echo "🧠 Modelos disponibles:"
+  echo "🧾 Modelfiles disponibles en $(pwd):"
   echo
 
-  for i in "${!models[@]}"; do
-    printf "  [%d] %s\n" "$((i+1))" "${models[$i]}"
+  for i in "${!modelfiles[@]}"; do
+    printf "  [%d] %s\n" "$((i+1))" "${modelfiles[$i]}"
   done
 
   echo
-  read -rp "👉 Selecciona un modelo (1-${#models[@]}): " choice
+  read -rp "👉 Selecciona un Modelfile (1-${#modelfiles[@]}): " choice
 
-  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#models[@]} )); then
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#modelfiles[@]} )); then
     echo "❌ Selección inválida."
     return 1
   fi
 
-  local selected="${models[$((choice-1))]}"
+  local selected="${modelfiles[$((choice-1))]}"
 
   echo
-  echo "✅ Modelo seleccionado: $selected"
+  echo "✅ Modelfile seleccionado: $selected"
 
-  # Export opcional
-  export OLLAMA_SELECTED_MODEL="$selected"
-  echo "🔧 Variable exportada: OLLAMA_SELECTED_MODEL=$selected"
+  # Export opcional para usarlo luego
+  export SELECTED_MODELFILE="$selected"
+  echo "🔧 Variable exportada: SELECTED_MODELFILE=$selected"
 }
+
 
 
 
