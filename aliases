@@ -1068,6 +1068,7 @@ ollama_pull () {
 
 ollama_modelfile_generate () {
   # Nota: no uso "set -euo pipefail" para que si hay error lo veas y no muera en silencio
+
   _mf_print_hr() { printf '%*s\n' "${COLUMNS:-80}" '' | tr ' ' '-'; }
   _mf_title() { _mf_print_hr; echo "🦙 Ollama Modelfile Generator (sin whiptail)"; _mf_print_hr; }
   _mf_pause() { read -r -p "Enter para continuar..." _; }
@@ -1113,25 +1114,25 @@ ollama_modelfile_generate () {
   # ===== Tipo / SYSTEM =====
   local TYPE SYSTEM_TEXT
   local -a TYPE_OPTS=(
-    "chat|Conversación general"
-    "dev|Asistente de desarrollo"
-    "code|Código determinista"
-    "llm|Estudio académico de LLMs"
-    "reason|Razonamiento paso a paso"
-    "docs|Redacción técnica"
-    "promptlab|Experimentación de prompts"
+    "chat|Conversación general y asistencia cotidiana"
+    "dev|Asistente de desarrollo y arquitectura de software"
+    "code|Generación de código preciso, determinista y ejecutable"
+    "llm|Análisis académico y estudio profundo de modelos LLM"
+    "reason|Razonamiento estructurado paso a paso"
+    "docs|Redacción técnica, profesional y académica"
+    "promptlab|Experimentación y pruebas avanzadas de prompts"
   )
   _mf_menu_vd "Tipo de Modelfile (define el SYSTEM prompt):" TYPE_OPTS
   TYPE="$REPLY"
 
   case "$TYPE" in
     chat) SYSTEM_TEXT=$'Asistente general, claro y conciso.\nResponde en español.' ;;
-    dev) SYSTEM_TEXT=$'Asistente de desarrollo.\nSoluciones ejecutables y buenas prácticas.' ;;
-    code) SYSTEM_TEXT=$'Asistente de programación.\nCódigo correcto y minimal.' ;;
-    llm) SYSTEM_TEXT=$'Asistente académico para estudiar LLMs.' ;;
-    reason) SYSTEM_TEXT=$'Asistente de razonamiento paso a paso.' ;;
-    docs) SYSTEM_TEXT=$'Redactor técnico y académico.' ;;
-    promptlab) SYSTEM_TEXT=$'Asistente para experimentar con prompts.' ;;
+    dev) SYSTEM_TEXT=$'Asistente de desarrollo.\nSoluciones ejecutables, patrones y buenas prácticas.' ;;
+    code) SYSTEM_TEXT=$'Asistente de programación.\nCódigo correcto, minimal y determinista.' ;;
+    llm) SYSTEM_TEXT=$'Asistente académico para estudiar y analizar LLMs.' ;;
+    reason) SYSTEM_TEXT=$'Asistente de razonamiento paso a paso y análisis lógico.' ;;
+    docs) SYSTEM_TEXT=$'Redactor técnico y académico, claro y estructurado.' ;;
+    promptlab) SYSTEM_TEXT=$'Asistente para experimentar, evaluar y depurar prompts.' ;;
     *) SYSTEM_TEXT=$'Asistente general.' ;;
   esac
 
@@ -1139,70 +1140,70 @@ ollama_modelfile_generate () {
   local TEMP TOP_P TOP_K NUM_CTX NUM_PRED REP_PEN REP_LAST_N PEN_NL
 
   local -a TEMP_OPTS=(
-    "0.2|Muy determinista (código, lógica)"
-    "0.35|Balanceado (uso general)"
-    "0.6|Más variación (conversación)"
-    "0.8|Creativo (ideas, texto libre)"
+    "0.2|Ultra estable: ideal para código, reglas, parsing y salidas repetibles"
+    "0.35|Equilibrado: buena precisión sin rigidez (uso general recomendado)"
+    "0.6|Exploratorio: mejor para conversación y redacción con variedad"
+    "0.8|Creativo: brainstorming, estilos; mayor riesgo de desviarse"
   )
-  _mf_menu_vd "temperature → aleatoriedad (bajo=determinista, alto=creativo)" TEMP_OPTS
+  _mf_menu_vd "temperature → creatividad vs consistencia (más alto = más variación)" TEMP_OPTS
   TEMP="$REPLY"
 
   local -a TOP_P_OPTS=(
-    "0.7|Muy restrictivo"
-    "0.8|Restrictivo"
-    "0.9|Balanceado (recomendado)"
-    "0.95|Más diverso"
-    "1.0|Sin filtro"
+    "0.7|Muy conservador: vocabulario limitado, alta consistencia"
+    "0.8|Conservador: reduce alucinaciones leves"
+    "0.9|Equilibrado: estándar práctico para la mayoría de casos"
+    "0.95|Diverso: más libertad expresiva, menos foco"
+    "1.0|Sin recorte: máxima diversidad (combinar con temperature bajo)"
   )
-  _mf_menu_vd "top_p → diversidad por probabilidad acumulada" TOP_P_OPTS
+  _mf_menu_vd "top_p → recorte por probabilidad acumulada (núcleo de tokens)" TOP_P_OPTS
   TOP_P="$REPLY"
 
   local -a TOP_K_OPTS=(
-    "0|Desactivado"
-    "40|Común"
-    "50|Balanceado"
-    "100|Muy diverso"
+    "0|Desactivado: control solo por top_p (suave)"
+    "40|Estándar: buen control sin rigidez"
+    "50|Equilibrado: más variedad manteniendo precisión"
+    "100|Abierto: permite tokens raros y creativos"
   )
-  _mf_menu_vd "top_k → máximo de candidatos (0 = desactivar)" TOP_K_OPTS
+  _mf_menu_vd "top_k → límite duro de candidatos por token" TOP_K_OPTS
   TOP_K="$REPLY"
 
   local -a NUM_CTX_OPTS=(
-    "2048|Corto"
-    "4096|Normal (recomendado)"
-    "8192|Largo (si el modelo lo soporta)"
+    "2048|Contexto corto: rápido y ligero"
+    "4096|Contexto normal: recomendado para la mayoría de flujos"
+    "8192|Contexto largo: documentos extensos (más RAM/VRAM)"
   )
-  _mf_menu_vd "num_ctx → tamaño del contexto (tokens)" NUM_CTX_OPTS
+  _mf_menu_vd "num_ctx → memoria total disponible (prompt + historial)" NUM_CTX_OPTS
   NUM_CTX="$REPLY"
 
   local -a NUM_PRED_OPTS=(
-    "256|Respuesta corta"
-    "512|Respuesta normal"
-    "1024|Respuesta larga"
+    "256|Salida corta: respuestas puntuales"
+    "512|Salida media: balance entre detalle y foco"
+    "1024|Salida larga: explicaciones extensas (riesgo de relleno)"
   )
-  _mf_menu_vd "num_predict → máximo de tokens generados" NUM_PRED_OPTS
+  _mf_menu_vd "num_predict → máximo de tokens de salida" NUM_PRED_OPTS
   NUM_PRED="$REPLY"
 
   local -a REP_PEN_OPTS=(
-    "1.0|Sin penalización"
-    "1.10|Balanceado (recomendado)"
-    "1.20|Fuerte (evita loops)"
+    "1.0|Sin penalización: puede repetir si se atasca"
+    "1.10|Penalización suave: reduce muletillas (recomendado)"
+    "1.20|Penalización fuerte: evita loops, menos natural"
   )
-  _mf_menu_vd "repeat_penalty → penaliza repetición" REP_PEN_OPTS
+  _mf_menu_vd "repeat_penalty → freno a la repetición de tokens" REP_PEN_OPTS
   REP_PEN="$REPLY"
 
   local -a REP_LAST_N_OPTS=(
-    "64|Corta"
-    "128|Normal (recomendado)"
-    "256|Larga"
+    "64|Ventana corta: impacto mínimo"
+    "128|Ventana media: balance ideal"
+    "256|Ventana larga: evita repetición lejana"
   )
-  _mf_menu_vd "repeat_last_n → ventana donde se aplica la penalización" REP_LAST_N_OPTS
+  _mf_menu_vd "repeat_last_n → tokens hacia atrás considerados" REP_LAST_N_OPTS
   REP_LAST_N="$REPLY"
 
   local -a PEN_NL_OPTS=(
-    "false|No penalizar"
-    "true|Penalizar saltos"
+    "false|Permite formato rico: markdown, listas y código"
+    "true|Texto compacto: menos saltos de línea"
   )
-  _mf_menu_vd "penalize_newline → reduce saltos de línea excesivos" PEN_NL_OPTS
+  _mf_menu_vd "penalize_newline → control de saltos de línea" PEN_NL_OPTS
   PEN_NL="$REPLY"
 
   # ===== Nombre (único input escrito) =====
@@ -1239,11 +1240,10 @@ EOF
 
   echo
   _mf_print_hr
-  echo "✅ Modelfile creado:"
+  echo "✅ Modelfile creado correctamente:"
   echo "   $FILE"
   _mf_print_hr
 }
-
 
 
 
