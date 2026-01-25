@@ -1255,7 +1255,7 @@ EOF
 
 ollama_model_generate () {
   # ---- Config ----
-  local MF_DIR="$HOME/llama/modelfiles"
+  local MF_DIR="$HOME/ollama/modelfiles"
   local TMP_DIR="${TMPDIR:-/tmp}"
   local BASE_MODEL="" MF_PATH="" NEW_NAME=""
   local -a MODELS=() FILES=()
