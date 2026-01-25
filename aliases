@@ -986,288 +986,79 @@ ollama_install(){
   curl -fsSL https://ollama.com/install.sh | sh
 }
 
-ollama_generate_modelfiles () {
-  local BASE_MODEL="gemma3:1b"
-  local OUT_DIR="$(pwd)"
+ollama_pull () {
+  # Catálogo curado (popular/útil) + descripciones.
+  # Puedes ampliar/editar esta lista cuando quieras.
 
-  echo "📁 Directorio actual: $OUT_DIR"
-  echo "🧠 Modelo base: $BASE_MODEL"
-  echo "🚀 Generando Modelfiles aquí..."
-
-  # 1) Chat general
-  cat > Modelfile.gen-chat <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente general, claro y conciso.
-Responde en español.
-Evita relleno.
-"""
-
-PARAMETER temperature 0.6
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 2) Desarrollo de software
-  cat > Modelfile.gen-dev <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente de desarrollo de software.
-Entrega soluciones claras y ejecutables.
-Prioriza buenas prácticas.
-"""
-
-PARAMETER temperature 0.3
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 3) Código estricto
-  cat > Modelfile.gen-code <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente enfocado en programación.
-Código correcto, minimal y claro.
-Incluye ejemplo breve si aplica.
-"""
-
-PARAMETER temperature 0.2
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 4) Estudio de LLMs
-  cat > Modelfile.gen-llm <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente académico para estudiar Grandes Modelos de Lenguaje.
-Explica conceptos con ejemplos simples.
-Mantén rigor sin exceso matemático.
-"""
-
-PARAMETER temperature 0.35
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 5) Razonamiento guiado
-  cat > Modelfile.gen-reason <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente para razonamiento paso a paso.
-Divide problemas en pasos claros.
-Declara supuestos.
-"""
-
-PARAMETER temperature 0.3
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 6) Escritura técnica / académica
-  cat > Modelfile.gen-docs <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Redactor técnico y académico.
-Texto claro, estructurado y conciso.
-"""
-
-PARAMETER temperature 0.4
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 7) Prompt lab
-  cat > Modelfile.gen-promptlab <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente para experimentar con prompts.
-Propone variantes y mejoras.
-Evalúa claridad y consistencia.
-"""
-
-PARAMETER temperature 0.5
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  echo "✅ Modelfiles creados en:"
-  echo "  $OUT_DIR"
-  ls -1 Modelfile.gen-* 2>/dev/null
-}
-
-ollama_select_modelfile () {
-  local modelfiles
-  local choice
-
-  # Buscar Modelfiles en el directorio actual
-  mapfile -t modelfiles < <(ls Modelfile.* 2>/dev/null)
-
-  if [ "${#modelfiles[@]}" -eq 0 ]; then
-    echo "❌ No se encontraron Modelfiles en el directorio actual."
-    return 1
-  fi
-
-  echo "🧾 Modelfiles disponibles en $(pwd):"
-  echo
-
-  for i in "${!modelfiles[@]}"; do
-    printf "  [%d] %s\n" "$((i+1))" "${modelfiles[$i]}"
-  done
-
-  echo
-  read -rp "👉 Selecciona un Modelfile (1-${#modelfiles[@]}): " choice
-
-  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#modelfiles[@]} )); then
-    echo "❌ Selección inválida."
-    return 1
-  fi
-
-  local selected="${modelfiles[$((choice-1))]}"
-
-  echo
-  echo "✅ Modelfile seleccionado: $selected"
-
-  # Export opcional para usarlo luego
-  export SELECTED_MODELFILE="$selected"
-  echo "🔧 Variable exportada: SELECTED_MODELFILE=$selected"
-}
-
-# ===========================
-# Ollama "one command" toolkit
-# ===========================
-# Te permite, desde UNA instrucción:
-# 1) Ver modelos REMOTOS (catálogo), con descripción, y seleccionar uno para instalar (ollama pull)
-# 2) Generar todos los Modelfiles "generales" en el directorio actual
-# 3) Ver modelos LOCALES (ollama list) + descripción, seleccionar modelo + seleccionar Modelfile
-#
-# Requisitos:
-# - bash 4+ (Debian ok)
-# - ollama instalado y funcionando
-#
-# Uso:
-#   source ~/.bashrc
-#   ollama_toolkit
-#
-# Nota: el "catálogo remoto" depende de `ollama search` (lo que el registry de Ollama exponga).
-# ===========================
-
-ollama_toolkit () {
-  set -euo pipefail
-
-  # ---------- Helpers ----------
-  _press_enter () { read -rp $'\n↩️  Enter para continuar...' _; }
-
-  _safe_has_cmd () { command -v "$1" >/dev/null 2>&1; }
-
-  _desc_model () {
-    # Descripciones "inteligentes" por prefijo/familia (fallback si no hay match exacto)
-    local m="$1"
-    case "$m" in
-      *gemma* ) echo "Modelo general eficiente (Gemma). Bueno para pruebas y tareas generales." ;;
-      *llama* ) echo "Modelo general fuerte (LLaMA). Buen balance chat/razonamiento." ;;
-      *qwen* )  echo "Muy bueno para código y razonamiento; fuerte multilingüe (Qwen)." ;;
-      *mistral*|*mixtral* ) echo "Rápido/eficiente; Mixtral es MoE (buen rendimiento/costo)." ;;
-      *phi* )   echo "Modelo pequeño/edge; útil para pruebas rápidas y dispositivos limitados." ;;
-      *coder*|*code*|*starcoder* ) echo "Orientado a programación (code-tuned)." ;;
-      *deepseek* ) echo "Fuerte en código/razonamiento (DeepSeek family)." ;;
-      *yi* ) echo "Modelo multilingüe (Yi family)." ;;
-      * ) echo "Modelo sin descripción específica (personalizado o menos común)." ;;
-    esac
-  }
-
-  _desc_modelfile () {
-    local f="$1"
-    case "$f" in
-      Modelfile.gen-chat) echo "Chat general: conversación clara y concisa." ;;
-      Modelfile.gen-dev) echo "Desarrollo: soluciones ejecutables y buenas prácticas." ;;
-      Modelfile.gen-code) echo "Código estricto: respuestas más deterministas y minimal." ;;
-      Modelfile.gen-llm) echo "Curso LLMs: teoría + práctica (transformers, tuning, prompting, RAG)." ;;
-      Modelfile.gen-reason) echo "Razonamiento guiado: pasos, supuestos, alternativas." ;;
-      Modelfile.gen-docs) echo "Documentación: redacción técnica/académica estructurada." ;;
-      Modelfile.gen-promptlab) echo "Prompt lab: diseño de prompts, variantes A/B, evaluación." ;;
-      * ) echo "Modelfile sin descripción." ;;
-    esac
-  }
-
-  _select_from_list () {
-    # args: array_name, prompt
-    local -n arr="$1"
-    local prompt="$2"
-    local choice
-    read -rp "$prompt " choice
-    if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#arr[@]} )); then
-      echo "❌ Selección inválida."
-      return 1
-    fi
-    echo "${arr[$((choice-1))]}"
-  }
-
-  # ---------- Step 1: Remote models (search) ----------
- _remote_search_and_install () {
   if ! command -v ollama >/dev/null 2>&1; then
-    echo "❌ 'ollama' no está disponible."
+    echo "❌ 'ollama' no está instalado o no está en PATH."
     return 1
   fi
 
-  local query
-  echo "🔎 Búsqueda de modelos (remote)"
-  read -rp "Escribe un término (ej: gemma, llama, qwen, mistral): " query
-  query="${query:-gemma}"
+  # Lista de modelos (nombres tal como se usan en `ollama pull`)
+  local models=(
+    "gemma3:1b"
+    "gemma2:2b"
+    "gemma2:9b"
+    "llama3.2:1b"
+    "llama3.2:3b"
+    "llama3.2:latest"
+    "qwen2.5:7b"
+    "qwen2.5:14b"
+    "mistral:latest"
+    "mixtral:8x7b"
+    "phi3:mini"
+    "phi3:medium"
+    "codellama:7b"
+    "starcoder2:7b"
+    "deepseek-r1:7b"
+    "deepseek-coder:6.7b"
+  )
 
+  # Descripciones (para qué sirve cada uno)
+  # Nota: si algún nombre cambia en tu versión de Ollama, simplemente ajustas la key.
+  declare -A desc=(
+    ["gemma3:1b"]="Muy liviano. Ideal para aprender, hacer pruebas rápidas y experimentar prompting."
+    ["gemma2:2b"]="Pequeño y práctico. Buen equilibrio para tareas generales en máquina modesta."
+    ["gemma2:9b"]="Mejor calidad que los pequeños. General y bastante sólido sin irse a tamaños enormes."
+    ["llama3.2:1b"]="Ultraligero. Útil para experimentos rápidos; limitado en profundidad."
+    ["llama3.2:3b"]="Pequeño pero más capaz. Buen modelo general para escritorio modesto."
+    ["llama3.2:latest"]="General fuerte (según disponibilidad local). Bueno para chat/razonamiento."
+    ["qwen2.5:7b"]="Excelente para desarrollo y razonamiento. Muy buen “todo terreno” para programar."
+    ["qwen2.5:14b"]="Mejor calidad para código/razonamiento. Recomendado si tu máquina lo aguanta."
+    ["mistral:latest"]="Rápido y eficiente. Bueno para respuestas cortas/medianas y chat."
+    ["mixtral:8x7b"]="Muy buen rendimiento (MoE). Excelente calidad, pero más pesado."
+    ["phi3:mini"]="Modelo pequeño para tareas básicas y pruebas; rápido."
+    ["phi3:medium"]="Más capaz que mini; buen balance para tareas generales."
+    ["codellama:7b"]="Orientado a programación (Code). Útil si quieres foco en código."
+    ["starcoder2:7b"]="Muy bueno para código (especialmente completación y patrones de programación)."
+    ["deepseek-r1:7b"]="Fuerte en razonamiento (según variante). Útil para problemas lógicos."
+    ["deepseek-coder:6.7b"]="Fuerte para código. Buen competidor para tareas de programación."
+  )
+
+  echo "🌐 Catálogo de modelos recomendados para descargar con Ollama"
+  echo "   (Selecciona uno y lo instalo con 'ollama pull')"
   echo
-  echo "🌐 Buscando modelos para: '$query' ..."
-  echo
 
-  # ⚠️ Desactivar salida automática por error SOLO aquí
-  set +e
-  local raw_output
-  raw_output="$(ollama search "$query" 2>/dev/null)"
-  local status=$?
-  set -e
-
-  if [ $status -ne 0 ] || [ -z "$raw_output" ]; then
-    echo "❌ No se encontraron modelos o hubo un error en la búsqueda."
-    echo "👉 Intenta con otro término (ej: llama, qwen, mistral)"
-    return 0
-  fi
-
-  mapfile -t remote_models < <(echo "$raw_output" | awk 'NR>1 {print $1}' | head -n 20)
-
-  if [ "${#remote_models[@]}" -eq 0 ]; then
-    echo "❌ No se encontraron modelos con '$query'."
-    return 0
-  fi
-
-  echo "📦 Modelos encontrados:"
-  echo
-
-  for i in "${!remote_models[@]}"; do
-    local m="${remote_models[$i]}"
-    printf "  [%d] %-24s — %s\n" "$((i+1))" "$m" "$(_desc_model "$m")"
+  for i in "${!models[@]}"; do
+    local m="${models[$i]}"
+    local d="${desc[$m]:-Modelo popular (sin descripción en catálogo).}"
+    printf "  [%d] %-20s — %s\n" "$((i+1))" "$m" "$d"
   done
 
   echo
-  read -rp "👉 Selecciona un modelo para instalar (1-${#remote_models[@]}) o Enter para cancelar: " choice
-
-  if [ -z "$choice" ]; then
+  read -rp "👉 Selecciona un modelo para instalar (1-${#models[@]}) o Enter para cancelar: " choice
+  if [ -z "${choice:-}" ]; then
     echo "ℹ️  Cancelado."
     return 0
   fi
 
-  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#remote_models[@]} )); then
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#models[@]} )); then
     echo "❌ Selección inválida."
-    return 0
+    return 1
   fi
 
-  local selected="${remote_models[$((choice-1))]}"
+  local selected="${models[$((choice-1))]}"
   echo
   echo "⬇️  Instalando: $selected"
   ollama pull "$selected"
@@ -1275,203 +1066,6 @@ ollama_toolkit () {
 }
 
 
-  # ---------- Step 2: Generate Modelfiles in current dir ----------
-  _generate_modelfiles_here () {
-    local BASE_MODEL="${1:-gemma3:1b}"
-    echo
-    echo "🧾 Generando Modelfiles en: $(pwd)"
-    echo "🧠 Modelo base por defecto (FROM): $BASE_MODEL"
-    echo "   (Luego puedes cambiar FROM por otro modelo.)"
-    echo
-
-    cat > Modelfile.gen-chat <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """Asistente general, claro y conciso. Responde en español. Evita relleno."""
-PARAMETER temperature 0.6
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-    cat > Modelfile.gen-dev <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """Asistente de desarrollo. Entrega soluciones ejecutables y buenas prácticas. Explica lo justo."""
-PARAMETER temperature 0.3
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-    cat > Modelfile.gen-code <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """Asistente de programación. Código correcto, minimal y claro. Incluye ejemplo breve si aplica."""
-PARAMETER temperature 0.2
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-    cat > Modelfile.gen-llm <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """Asistente académico para curso de LLMs. Explica transformers, attention, tuning, RLHF, RAG con ejemplos simples y rigor."""
-PARAMETER temperature 0.35
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-    cat > Modelfile.gen-reason <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """Asistente de razonamiento guiado. Divide en pasos, declara supuestos y compara alternativas."""
-PARAMETER temperature 0.3
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-    cat > Modelfile.gen-docs <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """Redactor técnico/académico. Texto claro, estructurado y conciso. Español/inglés si se pide."""
-PARAMETER temperature 0.4
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-    cat > Modelfile.gen-promptlab <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """Laboratorio de prompting. Propone variantes, criterios de evaluación y mejoras por claridad/consistencia."""
-PARAMETER temperature 0.5
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-    echo "✅ Modelfiles creados:"
-    ls -1 Modelfile.gen-*
-  }
-
-  # ---------- Step 3: Local select model + Modelfile ----------
-  _local_select_model_and_modelfile () {
-    local local_models=()
-    local local_modelfiles=()
-    local choice
-
-    mapfile -t local_models < <(ollama list | awk 'NR>1 {print $1}')
-    if [ "${#local_models[@]}" -eq 0 ]; then
-      echo "❌ No hay modelos locales en Ollama. Instala uno primero (ollama pull ...)."
-      return 1
-    fi
-
-    mapfile -t local_modelfiles < <(ls Modelfile.* 2>/dev/null || true)
-    if [ "${#local_modelfiles[@]}" -eq 0 ]; then
-      echo "❌ No encontré Modelfile.* en: $(pwd)"
-      echo "   Ejecuta la opción 2 para generarlos aquí."
-      return 1
-    fi
-
-    echo
-    echo "🏠 Modelos locales (Ollama):"
-    echo
-    for i in "${!local_models[@]}"; do
-      local m="${local_models[$i]}"
-      printf "  [%d] %-24s — %s\n" "$((i+1))" "$m" "$(_desc_model "$m")"
-    done
-
-    echo
-    local selected_model
-    selected_model="$(_select_from_list local_models "👉 Selecciona un modelo local (1-${#local_models[@]}):")" || return 1
-
-    echo
-    echo "🧾 Modelfiles en $(pwd):"
-    echo
-    for i in "${!local_modelfiles[@]}"; do
-      local f="${local_modelfiles[$i]}"
-      printf "  [%d] %-24s — %s\n" "$((i+1))" "$f" "$(_desc_modelfile "$f")"
-    done
-
-    echo
-    local selected_modelfile
-    selected_modelfile="$(_select_from_list local_modelfiles "👉 Selecciona un Modelfile (1-${#local_modelfiles[@]}):")" || return 1
-
-    echo
-    echo "✅ Selecciones:"
-    echo "   Modelo:    $selected_model"
-    echo "   Modelfile: $selected_modelfile"
-
-    export SELECTED_OLLAMA_MODEL="$selected_model"
-    export SELECTED_MODELFILE="$selected_modelfile"
-
-    echo
-    read -rp "🔁 ¿Quieres actualizar el FROM del Modelfile para usar '$selected_model'? (y/n) [y]: " ans
-    ans="${ans:-y}"
-    if [[ "$ans" =~ ^[Yy]$ ]]; then
-      if grep -qE '^FROM[[:space:]]+' "$selected_modelfile"; then
-        sed -i -E "0,/^FROM[[:space:]]+.*/s//FROM ${selected_model}/" "$selected_modelfile"
-      else
-        sed -i "1iFROM ${selected_model}\n" "$selected_modelfile"
-      fi
-      echo "✅ FROM actualizado: $(head -n 1 "$selected_modelfile")"
-    else
-      echo "ℹ️  No se modificó el Modelfile."
-    fi
-
-    # nombre sugerido
-    local mf_tag model_tag default_name new_name
-    mf_tag="$(basename "$selected_modelfile" | sed -E 's/^Modelfile\.//')"
-    model_tag="$(echo "$selected_model" | tr ':/' '__')"
-    default_name="custom-${mf_tag}-${model_tag}"
-
-    echo
-    read -rp "🏷️  Nombre para crear modelo (ollama create) [$default_name]: " new_name
-    new_name="${new_name:-$default_name}"
-
-    echo
-    echo "🛠️  Creando: $new_name"
-    ollama create "$new_name" -f "$selected_modelfile"
-    echo "✅ Creado: $new_name"
-    echo "👉 Prueba: ollama run $new_name"
-  }
-
-  # ---------- Menu ----------
-  while true; do
-    echo
-    echo "=============================="
-    echo " OLLAMA TOOLKIT (1 comando)"
-    echo " Carpeta: $(pwd)"
-    echo "=============================="
-    echo "  [1] Buscar modelos (remote) + ver para qué sirven + instalar (pull)"
-    echo "  [2] Generar todos los Modelfiles generales aquí (pwd)"
-    echo "  [3] Ver modelos locales + ver para qué sirven + seleccionar modelo y Modelfile + crear"
-    echo "  [4] Salir"
-    echo
-
-    read -rp "Elige una opción (1-4): " choice
-    case "${choice:-}" in
-      1)
-        _remote_search_and_install
-        _press_enter
-        ;;
-      2)
-        read -rp "Modelo base por defecto para FROM [gemma3:1b]: " base
-        base="${base:-gemma3:1b}"
-        _generate_modelfiles_here "$base"
-        _press_enter
-        ;;
-      3)
-        _local_select_model_and_modelfile
-        _press_enter
-        ;;
-      4)
-        echo "👋 Listo."
-        return 0
-        ;;
-      *)
-        echo "❌ Opción inválida."
-        ;;
-    esac
-  done
-}
 
 
 
