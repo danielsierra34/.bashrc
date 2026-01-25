@@ -1102,13 +1102,13 @@ ollama_modelfile_generate () {
 
   # ===== Directories (HOME) =====
   local ROOT_DIR MF_DIR
-  ROOT_DIR="$HOME/ollama"
+  ROOT_DIR="$HOME/llama"
   MF_DIR="$ROOT_DIR/modelfiles"
   mkdir -p "$MF_DIR" || { echo "❌ No pude crear $MF_DIR"; return 1; }
 
   _mf_title
   echo "📁 Carpeta destino: $MF_DIR"
-  echo "ℹ️  El Modelfile queda con FROM __BASE_MODEL__ para que lo reemplaces luego."
+  echo "ℹ️  El Modelfile queda con FROM __BASE_MODEL__ (luego lo reemplazas por el modelo real)."
   _mf_pause
 
   # ===== Tipo / SYSTEM =====
@@ -1122,7 +1122,7 @@ ollama_modelfile_generate () {
     "docs|Redacción técnica/profesional con estructura"
     "promptlab|Experimentación y pruebas de prompts"
   )
-  _mf_menu_vd "Tipo de Modelfile (define el SYSTEM prompt):" TYPE_OPTS
+  _mf_menu_vd "TIPO → Define el “rol” del modelo (SYSTEM). Esto es como decirle quién es y cómo debe responder." TYPE_OPTS
   TYPE="$REPLY"
 
   case "$TYPE" in
@@ -1139,15 +1139,17 @@ ollama_modelfile_generate () {
   # ===== Parámetros =====
   local TEMP TOP_P TOP_K NUM_CTX NUM_PRED REP_PEN REP_LAST_N PEN_NL
 
+  # temperature
   local -a TEMP_OPTS=(
-    "0.2|Muy estable: ideal para lógica/código y salidas repetibles"
-    "0.35|Equilibrado: precisión + naturalidad (recomendado general)"
-    "0.6|Más variación: conversación e ideas con alternativas"
-    "0.8|Creativo: brainstorming/estilo; más riesgo de desviarse"
+    "0.2|Ultra estable: ideal para código, reglas, parsing y salidas repetibles"
+    "0.35|Equilibrado: buena precisión sin rigidez (uso general recomendado)"
+    "0.6|Exploratorio: mejor para conversación y redacción con variedad"
+    "0.8|Creativo: brainstorming/estilo; mayor riesgo de desviarse"
   )
-  _mf_menu_vd "temperature (aleatoriedad): qué tan conservador vs creativo al elegir tokens" TEMP_OPTS
+  _mf_menu_vd "temperature → Controla QUÉ TANTO se “arriesga” el modelo al elegir la siguiente palabra. Bajo = más predecible y exacto. Alto = más variado y creativo." TEMP_OPTS
   TEMP="$REPLY"
 
+  # top_p
   local -a TOP_P_OPTS=(
     "0.7|Muy conservador: recorta fuerte opciones raras"
     "0.8|Conservador: control alto con algo de variedad"
@@ -1155,55 +1157,61 @@ ollama_modelfile_generate () {
     "0.95|Diverso: más libertad, menos foco"
     "1.0|Sin recorte: deja pasar todo (controla con temperature)"
   )
-  _mf_menu_vd "top_p (núcleo): limita candidatos por probabilidad acumulada (nucleus sampling)" TOP_P_OPTS
+  _mf_menu_vd "top_p → Define el “TAMAÑO del menú” de opciones por probabilidad. El modelo considera solo las palabras más probables hasta sumar p (ej. 0.9). Bajo = menos rarezas. Alto = más diversidad." TOP_P_OPTS
   TOP_P="$REPLY"
 
+  # top_k
   local -a TOP_K_OPTS=(
-    "0|Desactivado: solo manda top_p (corte suave)"
+    "0|Desactivado: control solo por top_p (suave)"
     "40|Estándar: buen control sin rigidez"
-    "50|Equilibrado: algo más de variedad"
-    "100|Abierto: permite tokens raros/creativos"
+    "50|Equilibrado: más variedad manteniendo precisión"
+    "100|Abierto: permite tokens raros y creativos"
   )
-  _mf_menu_vd "top_k (corte duro): máximo de K tokens candidatos por paso (0 = off)" TOP_K_OPTS
+  _mf_menu_vd "top_k → Otro límite al “menú”: en vez de probabilidad, corta por ranking. Solo permite los K tokens más probables. K bajo = más control. K alto = más opciones. 0 = no usar este corte." TOP_K_OPTS
   TOP_K="$REPLY"
 
+  # num_ctx
   local -a NUM_CTX_OPTS=(
-    "2048|Corto: rápido/ligero; menos historial visible"
-    "4096|Normal: buen balance (recomendado)"
-    "8192|Largo: más memoria; más RAM/VRAM"
+    "2048|Contexto corto: rápido/ligero"
+    "4096|Contexto normal: recomendado para la mayoría de flujos"
+    "8192|Contexto largo: documentos extensos (más RAM/VRAM)"
   )
-  _mf_menu_vd "num_ctx (contexto): tokens máximos de entrada (prompt + historial + instrucciones)" NUM_CTX_OPTS
+  _mf_menu_vd "num_ctx → La “MEMORIA” máxima en una respuesta. Es cuántos tokens caben sumando: SYSTEM + tu prompt + historial + lo que estás preguntando. Más contexto = recuerda más, pero consume más recursos." NUM_CTX_OPTS
   NUM_CTX="$REPLY"
 
+  # num_predict
   local -a NUM_PRED_OPTS=(
-    "256|Corto: respuestas puntuales"
-    "512|Medio: completo sin divagar (recomendado)"
-    "1024|Largo: explicaciones extensas; más costo/tiempo"
+    "256|Salida corta: respuestas puntuales"
+    "512|Salida media: balance entre detalle y foco"
+    "1024|Salida larga: explicaciones extensas (riesgo de relleno)"
   )
-  _mf_menu_vd "num_predict (salida): tokens máximos que puede generar en una respuesta" NUM_PRED_OPTS
+  _mf_menu_vd "num_predict → LÍMITE de longitud de la respuesta. Es el máximo de tokens que el modelo puede generar. Útil para evitar respuestas eternas o para permitir respuestas largas." NUM_PRED_OPTS
   NUM_PRED="$REPLY"
 
+  # repeat_penalty
   local -a REP_PEN_OPTS=(
     "1.0|Sin penalización: puede repetir si se atasca"
-    "1.10|Suave: reduce muletillas/loops (recomendado)"
-    "1.20|Fuerte: corta loops agresivos; menos natural"
+    "1.10|Penalización suave: reduce muletillas (recomendado)"
+    "1.20|Penalización fuerte: evita loops, menos natural"
   )
-  _mf_menu_vd "repeat_penalty (anti-repetición): castiga repetir tokens recientes" REP_PEN_OPTS
+  _mf_menu_vd "repeat_penalty → “ANTI-REPETICIÓN”. Cuando el modelo intenta repetir tokens recientes, esta penalización lo empuja a variar. Más alto = menos repetición (pero puede sonar menos natural)." REP_PEN_OPTS
   REP_PEN="$REPLY"
 
+  # repeat_last_n
   local -a REP_LAST_N_OPTS=(
-    "64|Ventana corta: penaliza repetición inmediata"
-    "128|Ventana media: balance ideal (recomendado)"
-    "256|Ventana larga: evita repetición a más largo plazo"
+    "64|Ventana corta: impacto mínimo"
+    "128|Ventana media: balance ideal"
+    "256|Ventana larga: evita repetición lejana"
   )
-  _mf_menu_vd "repeat_last_n (ventana): cuántos tokens hacia atrás se consideran para penalización" REP_LAST_N_OPTS
+  _mf_menu_vd "repeat_last_n → Define QUÉ TANTO texto hacia atrás se revisa para aplicar repeat_penalty. Ventana pequeña = solo evita repeticiones inmediatas. Ventana grande = evita repetir cosas dichas hace más rato." REP_LAST_N_OPTS
   REP_LAST_N="$REPLY"
 
+  # penalize_newline
   local -a PEN_NL_OPTS=(
-    "false|Formato libre: mejor para markdown, listas y código"
+    "false|Permite formato rico: markdown, listas y código"
     "true|Texto compacto: menos saltos de línea"
   )
-  _mf_menu_vd "penalize_newline (saltos de línea): reduce la tendencia a separar por líneas" PEN_NL_OPTS
+  _mf_menu_vd "penalize_newline → Controla la TENDENCIA a usar saltos de línea. Si lo penalizas, responde más “en párrafo”. Si no, facilita listas, markdown y bloques de código." PEN_NL_OPTS
   PEN_NL="$REPLY"
 
   # ===== Nombre (único input escrito) =====
@@ -1244,7 +1252,6 @@ EOF
   echo "   $FILE"
   _mf_print_hr
 }
-
 
 
 
