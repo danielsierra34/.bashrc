@@ -1065,482 +1065,140 @@ ollama_pull () {
   echo "✅ Instalado: $selected"
 }
 
-ollama_modelfiles_generate () {
-  local BASE_MODEL="${1:-gemma3:1b}"
-  local ROOT_DIR="$(pwd)/ollama"
-  local MF_DIR="$ROOT_DIR/modelfiles"
-
-  echo "📁 Proyecto: $(pwd)"
-  echo "📂 Carpeta Ollama: $ROOT_DIR"
-  echo "📄 Carpeta Modelfiles: $MF_DIR"
-  echo "🧠 Modelo base (FROM): $BASE_MODEL"
-  echo
-
-  # Crear estructura de carpetas
-  mkdir -p "$MF_DIR"
-
-  # 1) Chat general
-  cat > "$MF_DIR/Modelfile.gen-chat" <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente general, claro y conciso.
-Responde en español.
-Evita relleno.
-"""
-
-PARAMETER temperature 0.6
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 2) Desarrollo
-  cat > "$MF_DIR/Modelfile.gen-dev" <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente de desarrollo de software.
-Entrega soluciones ejecutables y buenas prácticas.
-Explica solo lo necesario.
-"""
-
-PARAMETER temperature 0.3
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 3) Código estricto
-  cat > "$MF_DIR/Modelfile.gen-code" <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente enfocado en programación.
-Código correcto, minimal y claro.
-Incluye ejemplo breve si aplica.
-"""
-
-PARAMETER temperature 0.2
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 4) Estudio de LLMs
-  cat > "$MF_DIR/Modelfile.gen-llm" <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente académico para estudiar Grandes Modelos de Lenguaje.
-Explica transformers, attention, fine-tuning, RLHF y prompting con ejemplos simples.
-"""
-
-PARAMETER temperature 0.35
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 5) Razonamiento
-  cat > "$MF_DIR/Modelfile.gen-reason" <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente para razonamiento paso a paso.
-Divide problemas en pasos claros.
-Declara supuestos.
-"""
-
-PARAMETER temperature 0.3
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 6) Documentación
-  cat > "$MF_DIR/Modelfile.gen-docs" <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Redactor técnico y académico.
-Texto claro, estructurado y conciso.
-"""
-
-PARAMETER temperature 0.4
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  # 7) Prompt lab
-  cat > "$MF_DIR/Modelfile.gen-promptlab" <<EOF
-FROM ${BASE_MODEL}
-
-SYSTEM """
-Asistente para experimentar con prompts.
-Propone variantes y mejoras.
-Evalúa claridad y consistencia.
-"""
-
-PARAMETER temperature 0.5
-PARAMETER top_p 0.9
-PARAMETER num_ctx 4096
-EOF
-
-  echo "✅ Modelfiles creados en:"
-  ls -1 "$MF_DIR"
-}
-
-
-ollama_modelfile_wizard () {
-  # === UI backend (whiptail o dialog) ===
-  local UI=""
-  if command -v whiptail >/dev/null 2>&1; then
-    UI="whiptail"
-  elif command -v dialog >/dev/null 2>&1; then
-    UI="dialog"
-  else
-    echo "❌ Necesitas 'whiptail' o 'dialog' para seleccionar sin digitar."
-    echo "   Instala uno:"
-    echo "   sudo apt-get update && sudo apt-get install -y whiptail"
-    echo "   (o) sudo apt-get install -y dialog"
+ollama_modelfile_create () {
+  if ! command -v whiptail >/dev/null 2>&1; then
+    echo "❌ Necesitas 'whiptail' (sudo apt-get install -y whiptail)"
     return 1
   fi
 
-  if ! command -v ollama >/dev/null 2>&1; then
-    echo "❌ 'ollama' no está disponible en PATH."
-    return 1
-  fi
-
-  # === Paths ===
-  local PROJECT_DIR
-  PROJECT_DIR="$(pwd)"
-  local ROOT_DIR="$PROJECT_DIR/ollama"
-  local MF_DIR="$ROOT_DIR/modelfiles"
+  local ROOT_DIR MF_DIR
+  ROOT_DIR="$(pwd)/ollama"
+  MF_DIR="$ROOT_DIR/modelfiles"
   mkdir -p "$MF_DIR" || return 1
 
-  # === Helpers UI ===
-  _ui_menu () {
-    local title="$1"; shift
-    local text="$1"; shift
-    # rest are triplets: tag item status(optional for dialog); for menu: tag item
-    if [ "$UI" = "whiptail" ]; then
-      whiptail --title "$title" --menu "$text" 18 90 10 "$@" 3>&1 1>&2 2>&3
-    else
-      dialog --stdout --title "$title" --menu "$text" 18 90 10 "$@"
-    fi
-  }
+  # ===== Tipo / SYSTEM =====
+  local TYPE SYSTEM_TEXT
+  TYPE="$(whiptail --title "Tipo de Modelfile" --radiolist \
+    "Propósito del Modelfile (define el SYSTEM prompt):" 18 80 8 \
+    "chat"     "Conversación general" ON \
+    "dev"      "Asistente de desarrollo" OFF \
+    "code"     "Código determinista" OFF \
+    "llm"      "Estudio académico de LLMs" OFF \
+    "reason"   "Razonamiento paso a paso" OFF \
+    "docs"     "Redacción técnica" OFF \
+    "promptlab""Experimentación de prompts" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-  _ui_radiolist () {
-    local title="$1"; shift
-    local text="$1"; shift
-    if [ "$UI" = "whiptail" ]; then
-      whiptail --title "$title" --radiolist "$text" 18 90 10 "$@" 3>&1 1>&2 2>&3
-    else
-      dialog --stdout --title "$title" --radiolist "$text" 18 90 10 "$@"
-    fi
-  }
-
-  _ui_checklist () {
-    local title="$1"; shift
-    local text="$1"; shift
-    if [ "$UI" = "whiptail" ]; then
-      whiptail --title "$title" --checklist "$text" 20 90 12 "$@" 3>&1 1>&2 2>&3
-    else
-      dialog --stdout --title "$title" --checklist "$text" 20 90 12 "$@"
-    fi
-  }
-
-  _ui_msg () {
-    local title="$1"
-    local text="$2"
-    if [ "$UI" = "whiptail" ]; then
-      whiptail --title "$title" --msgbox "$text" 12 90
-    else
-      dialog --title "$title" --msgbox "$text" 12 90
-    fi
-  }
-
-  _ui_yesno () {
-    local title="$1"
-    local text="$2"
-    if [ "$UI" = "whiptail" ]; then
-      whiptail --title "$title" --yesno "$text" 12 90
-      return $?
-    else
-      dialog --title "$title" --yesno "$text" 12 90
-      return $?
-    fi
-  }
-
-  # === Get local models from ollama ===
-  local -a local_models
-  mapfile -t local_models < <(ollama list | awk 'NR>1 {print $1}')
-  if [ "${#local_models[@]}" -eq 0 ]; then
-    _ui_msg "Ollama" "No tienes modelos locales.\n\nPrimero instala uno (ej: ollama pull gemma3:1b)\nLuego vuelve a ejecutar el wizard."
-    return 1
-  fi
-
-  # Build radiolist items for models
-  local -a model_items=()
-  local default_model="gemma3:1b"
-  local first="ON"
-  for m in "${local_models[@]}"; do
-    # Marca por defecto gemma3:1b si existe; si no, el primero
-    local status="OFF"
-    if [ "$m" = "$default_model" ]; then status="ON"; first="OFF"; fi
-    if [ "$first" = "ON" ]; then status="ON"; first="OFF"; fi
-    model_items+=("$m" "Modelo base para FROM" "$status")
-  done
-
-  local BASE_MODEL
-  BASE_MODEL="$(_ui_radiolist "Modelo base" "Selecciona el modelo base (FROM) para tus Modelfiles:" "${model_items[@]}")" || return 1
-
-  # === Choose which modelfiles to generate ===
-  local picked
-  picked="$(_ui_checklist \
-    "Qué Modelfiles generar" \
-    "Selecciona los Modelfiles a crear (SPACE para marcar, ENTER para confirmar):" \
-    "gen-chat"      "Chat general"                           "ON" \
-    "gen-dev"       "Desarrollo de software"                  "ON" \
-    "gen-code"      "Código estricto/determinista"            "OFF" \
-    "gen-llm"       "Curso LLMs (teoría + práctica)"          "ON" \
-    "gen-reason"    "Razonamiento guiado"                     "OFF" \
-    "gen-docs"      "Documentación técnica/académica"         "ON" \
-    "gen-promptlab" "Laboratorio de prompting"                "OFF" \
-  )" || return 1
-
-  # picked comes like: "gen-chat" "gen-dev" ...
-  if [ -z "$picked" ]; then
-    _ui_msg "Cancelado" "No seleccionaste ningún Modelfile."
-    return 0
-  fi
-
-  # === Parameter presets selection ===
-  # We keep it intuitive: pick a preset for "purpose" (balanced, deterministic, creative)
-  local PRESET
-  PRESET="$(_ui_radiolist \
-    "Preset de parámetros" \
-    "Selecciona un preset (aplica a todos los Modelfiles seleccionados):" \
-    "balanced"     "Balanceado (recomendado)" "ON" \
-    "deterministic" "Más determinista (ideal código)" "OFF" \
-    "creative"     "Más creativo (ideación)" "OFF" \
-  )" || return 1
-
-  # Base parameter values based on preset (still selectable next)
-  local temperature top_p num_ctx num_predict repeat_penalty repeat_last_n top_k
-  case "$PRESET" in
-    deterministic)
-      temperature="0.2"; top_p="0.9"; num_ctx="4096"; num_predict="512"; repeat_penalty="1.15"; repeat_last_n="128"; top_k="40"
-      ;;
-    creative)
-      temperature="0.8"; top_p="0.95"; num_ctx="4096"; num_predict="768"; repeat_penalty="1.05"; repeat_last_n="64"; top_k="60"
-      ;;
-    *)
-      temperature="0.35"; top_p="0.9"; num_ctx="4096"; num_predict="512"; repeat_penalty="1.10"; repeat_last_n="128"; top_k="50"
-      ;;
+  case "$TYPE" in
+    chat) SYSTEM_TEXT=$'Asistente general, claro y conciso.\nResponde en español.' ;;
+    dev) SYSTEM_TEXT=$'Asistente de desarrollo.\nSoluciones ejecutables y buenas prácticas.' ;;
+    code) SYSTEM_TEXT=$'Asistente de programación.\nCódigo correcto y minimal.' ;;
+    llm) SYSTEM_TEXT=$'Asistente académico para estudiar LLMs.' ;;
+    reason) SYSTEM_TEXT=$'Asistente de razonamiento paso a paso.' ;;
+    docs) SYSTEM_TEXT=$'Redactor técnico y académico.' ;;
+    promptlab) SYSTEM_TEXT=$'Asistente para experimentar con prompts.' ;;
   esac
 
-  # Let user refine each from pick-lists (no typing)
-  temperature="$(_ui_radiolist "temperature" "Selecciona temperature:" \
-    "0.1" "Muy determinista"  "OFF" \
-    "0.2" "Determinista"      "OFF" \
-    "0.35" "Balanceado"       "OFF" \
-    "0.6" "Más variación"     "OFF" \
-    "0.8" "Creativo"          "OFF" \
-    "1.0" "Muy creativo"      "OFF" \
-  )" || return 1
+  # ===== Parámetros (con explicación corta) =====
 
-  top_p="$(_ui_radiolist "top_p" "Selecciona top_p:" \
-    "0.7"  "Más restrictivo"  "OFF" \
-    "0.8"  "Restrictivo"      "OFF" \
-    "0.9"  "Balanceado"       "ON"  \
-    "0.95" "Más diverso"      "OFF" \
-    "1.0"  "Sin filtro p"     "OFF" \
-  )" || return 1
+  local TEMP TOP_P TOP_K NUM_CTX NUM_PRED REP_PEN REP_LAST_N PEN_NL
 
-  num_ctx="$(_ui_radiolist "num_ctx" "Selecciona tamaño de contexto (num_ctx):" \
-    "2048"  "Corto"   "OFF" \
-    "4096"  "Normal"  "ON"  \
-    "8192"  "Largo"   "OFF" \
-    "16384" "Muy largo (si tu modelo lo soporta)" "OFF" \
-  )" || return 1
+  TEMP="$(whiptail --title "temperature" --radiolist \
+    "temperature → controla aleatoriedad (bajo = determinista, alto = creativo)" 18 90 6 \
+    "0.2"  "Muy determinista (código, lógica)" OFF \
+    "0.35" "Balanceado (uso general)" ON \
+    "0.6"  "Más variación (conversación)" OFF \
+    "0.8"  "Creativo (ideas, texto libre)" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-  num_predict="$(_ui_radiolist "num_predict" "Selecciona máximo de tokens de salida (num_predict):" \
-    "128"  "Corto"    "OFF" \
-    "256"  "Medio"    "OFF" \
-    "512"  "Normal"   "ON"  \
-    "768"  "Largo"    "OFF" \
-    "1024" "Muy largo" "OFF" \
-  )" || return 1
+  TOP_P="$(whiptail --title "top_p" --radiolist \
+    "top_p → limita tokens por probabilidad acumulada (diversidad)" 18 90 6 \
+    "0.7"  "Muy restrictivo" OFF \
+    "0.8"  "Restrictivo" OFF \
+    "0.9"  "Balanceado (recomendado)" ON \
+    "0.95" "Más diverso" OFF \
+    "1.0"  "Sin filtro" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-  repeat_penalty="$(_ui_radiolist "repeat_penalty" "Selecciona repeat_penalty:" \
-    "1.0"  "Sin penalización" "OFF" \
-    "1.05" "Suave"            "OFF" \
-    "1.10" "Balanceado"       "ON"  \
-    "1.15" "Fuerte"           "OFF" \
-    "1.20" "Muy fuerte"       "OFF" \
-  )" || return 1
+  TOP_K="$(whiptail --title "top_k" --radiolist \
+    "top_k → número máximo de tokens candidatos (0 = desactivar)" 18 90 6 \
+    "0"   "Desactivado" OFF \
+    "40"  "Común" OFF \
+    "50"  "Balanceado" ON \
+    "100" "Muy diverso" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-  repeat_last_n="$(_ui_radiolist "repeat_last_n" "Selecciona repeat_last_n:" \
-    "64"  "Corto"   "OFF" \
-    "128" "Normal"  "ON"  \
-    "256" "Largo"   "OFF" \
-  )" || return 1
+  NUM_CTX="$(whiptail --title "num_ctx" --radiolist \
+    "num_ctx → tamaño del contexto (tokens de memoria)" 18 90 6 \
+    "2048"  "Corto" OFF \
+    "4096"  "Normal (recomendado)" ON \
+    "8192"  "Largo (si el modelo lo soporta)" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-  top_k="$(_ui_radiolist "top_k" "Selecciona top_k (opcional, útil junto a top_p):" \
-    "0"   "Desactivar top_k" "OFF" \
-    "40"  "Común"            "OFF" \
-    "50"  "Balanceado"       "ON"  \
-    "60"  "Más diverso"      "OFF" \
-    "100" "Muy diverso"      "OFF" \
-  )" || return 1
+  NUM_PRED="$(whiptail --title "num_predict" --radiolist \
+    "num_predict → máximo de tokens generados (longitud de respuesta)" 18 90 6 \
+    "256"  "Respuesta corta" OFF \
+    "512"  "Respuesta normal" ON \
+    "1024" "Respuesta larga" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-  # Advanced toggles
-  local use_mirostat="no"
-  if _ui_yesno "Mirostat" "¿Quieres usar Mirostat (sampling adaptativo)?\n\nRecomendación: NO para empezar.\nSí puede ayudar a estabilizar creatividad."; then
-    use_mirostat="yes"
-  fi
+  REP_PEN="$(whiptail --title "repeat_penalty" --radiolist \
+    "repeat_penalty → penaliza repetición de texto" 18 90 6 \
+    "1.0"  "Sin penalización" OFF \
+    "1.10" "Balanceado (recomendado)" ON \
+    "1.20" "Fuerte (evita loops)" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-  local mirostat="0" mirostat_tau="5.0" mirostat_eta="0.1"
-  if [ "$use_mirostat" = "yes" ]; then
-    mirostat="$(_ui_radiolist "mirostat" "Selecciona mirostat:" \
-      "1" "Mirostat v1" "OFF" \
-      "2" "Mirostat v2 (recomendado)" "ON" \
-    )" || return 1
+  REP_LAST_N="$(whiptail --title "repeat_last_n" --radiolist \
+    "repeat_last_n → ventana donde se aplica la penalización" 18 90 6 \
+    "64"  "Corta" OFF \
+    "128" "Normal (recomendado)" ON \
+    "256" "Larga" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-    mirostat_tau="$(_ui_radiolist "mirostat_tau" "Selecciona mirostat_tau:" \
-      "3.0" "Más determinista" "OFF" \
-      "5.0" "Balanceado"       "ON"  \
-      "8.0" "Más creativo"     "OFF" \
-    )" || return 1
+  PEN_NL="$(whiptail --title "penalize_newline" --radiolist \
+    "penalize_newline → reduce saltos de línea excesivos" 14 90 4 \
+    "false" "No penalizar" ON \
+    "true"  "Penalizar saltos" OFF \
+    3>&1 1>&2 2>&3)" || return 1
 
-    mirostat_eta="$(_ui_radiolist "mirostat_eta" "Selecciona mirostat_eta:" \
-      "0.05" "Ajuste lento" "OFF" \
-      "0.1"  "Balanceado"   "ON"  \
-      "0.2"  "Ajuste rápido" "OFF" \
-    )" || return 1
-  fi
+  # ===== Nombre =====
+  local NAME
+  NAME="$(whiptail --title "Nombre" --inputbox \
+    "Nombre del Modelfile (único campo que se escribe):" 12 80 "my-${TYPE}" \
+    3>&1 1>&2 2>&3)" || return 1
 
-  # Stops (optional)
-  local use_stop="no"
-  if _ui_yesno "Stop sequences" "¿Quieres agregar stop sequences (paradas)?\n\nÚtil si quieres que el modelo no se 'desboque'."; then
-    use_stop="yes"
-  fi
+  NAME="$(echo "$NAME" | tr -cd 'a-zA-Z0-9._-')"
+  [ -z "$NAME" ] && return 1
 
-  local stops=()
-  if [ "$use_stop" = "yes" ]; then
-    local stop_picked
-    stop_picked="$(_ui_checklist "Stop sequences" "Selecciona stop sequences (SPACE para marcar):" \
-      "###"      "Corta en separadores tipo ###" "OFF" \
-      "</s>"     "Token de fin común"            "OFF" \
-      "<|end|>"  "End token (algunas familias)"  "OFF" \
-      "END"      "Palabra END"                   "OFF" \
-    )" || return 1
+  local FILE="$MF_DIR/Modelfile.${NAME}"
 
-    # stop_picked comes quoted, e.g. "###" "</s>"
-    # shellcheck disable=SC2206
-    stops=( $stop_picked )
-  fi
+  # ===== Escritura =====
+  cat > "$FILE" <<EOF
+FROM __BASE_MODEL__
 
-  # === SYSTEM presets for each modelfile ===
-  _system_for () {
-    local key="$1"
-    case "$key" in
-      gen-chat)
-        cat <<'SYS'
-Asistente general, claro y conciso.
-Responde en español.
-Evita relleno.
-SYS
-        ;;
-      gen-dev)
-        cat <<'SYS'
-Asistente de desarrollo de software.
-Entrega soluciones ejecutables y buenas prácticas.
-Explica solo lo necesario.
-SYS
-        ;;
-      gen-code)
-        cat <<'SYS'
-Asistente enfocado en programación.
-Código correcto, minimal y claro.
-Incluye ejemplo breve si aplica.
-SYS
-        ;;
-      gen-llm)
-        cat <<'SYS'
-Asistente académico para estudiar LLMs.
-Explica transformers, attention, fine-tuning, RLHF y prompting con ejemplos simples.
-SYS
-        ;;
-      gen-reason)
-        cat <<'SYS'
-Asistente para razonamiento paso a paso.
-Divide problemas en pasos claros y declara supuestos.
-SYS
-        ;;
-      gen-docs)
-        cat <<'SYS'
-Redactor técnico y académico.
-Texto claro, estructurado y conciso.
-SYS
-        ;;
-      gen-promptlab)
-        cat <<'SYS'
-Asistente para experimentar con prompts.
-Propone variantes y mejoras; evalúa claridad y consistencia.
-SYS
-        ;;
-      *)
-        cat <<'SYS'
-Asistente general.
-SYS
-        ;;
-    esac
-  }
+SYSTEM """
+${SYSTEM_TEXT}
+"""
 
-  # === Write selected files ===
-  # shellcheck disable=SC2206
-  local keys=( $picked )
+PARAMETER temperature ${TEMP}
+PARAMETER top_p ${TOP_P}
+PARAMETER top_k ${TOP_K}
+PARAMETER num_ctx ${NUM_CTX}
+PARAMETER num_predict ${NUM_PRED}
+PARAMETER repeat_penalty ${REP_PEN}
+PARAMETER repeat_last_n ${REP_LAST_N}
+PARAMETER penalize_newline ${PEN_NL}
+EOF
 
-  local created=0
-  for key in "${keys[@]}"; do
-    local file="$MF_DIR/Modelfile.$key"
-    local sys_text
-    sys_text="$(_system_for "$key")"
-
-    {
-      echo "FROM $BASE_MODEL"
-      echo
-      echo "SYSTEM \"\"\""
-      echo "$sys_text"
-      echo "\"\"\""
-      echo
-      echo "PARAMETER temperature $temperature"
-      echo "PARAMETER top_p $top_p"
-      echo "PARAMETER top_k $top_k"
-      echo "PARAMETER num_ctx $num_ctx"
-      echo "PARAMETER num_predict $num_predict"
-      echo "PARAMETER repeat_penalty $repeat_penalty"
-      echo "PARAMETER repeat_last_n $repeat_last_n"
-
-      if [ "$use_mirostat" = "yes" ]; then
-        echo "PARAMETER mirostat $mirostat"
-        echo "PARAMETER mirostat_tau $mirostat_tau"
-        echo "PARAMETER mirostat_eta $mirostat_eta"
-      fi
-
-      if [ "$use_stop" = "yes" ] && [ "${#stops[@]}" -gt 0 ]; then
-        local s
-        for s in "${stops[@]}"; do
-          # remove surrounding quotes if any
-          s="${s%\"}"; s="${s#\"}"
-          echo "PARAMETER stop \"$s\""
-        done
-      fi
-    } > "$file"
-
-    created=$((created+1))
-  done
-
-  _ui_msg "Listo ✅" "Se crearon/actualizaron $created Modelfile(s).\n\nRuta:\n$MF_DIR\n\nModelo base (FROM): $BASE_MODEL"
+  whiptail --title "Listo ✅" --msgbox \
+    "Modelfile creado:\n\n$FILE\n\nTodos los parámetros fueron seleccionados con descripción." \
+    14 90
 }
+
+
+
+
 
 
 
