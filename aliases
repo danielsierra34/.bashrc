@@ -1066,7 +1066,7 @@ ollama_pull () {
 }
 
 ollama_modelfile_generate () {
-  if ! command -v whiptail >/dev/null 2>&1; then
+if ! command -v whiptail >/dev/null 2>&1; then
     echo "❌ Necesitas 'whiptail' (sudo apt-get install -y whiptail)"
     return 1
   fi
