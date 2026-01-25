@@ -1066,38 +1066,17 @@ ollama_pull () {
 }
 
 ollama_modelfile_generate () {
-  set -euo pipefail
-
-  # ===== Utils =====
+  # Nota: no uso "set -euo pipefail" para que si hay error lo veas y no muera en silencio
   _mf_print_hr() { printf '%*s\n' "${COLUMNS:-80}" '' | tr ' ' '-'; }
   _mf_title() { _mf_print_hr; echo "🦙 Ollama Modelfile Generator (sin whiptail)"; _mf_print_hr; }
   _mf_pause() { read -r -p "Enter para continuar..." _; }
 
-  # menu: label + options array-name; returns selected value in REPLY
-  _mf_menu() {
-    local prompt="$1"; shift
-    local -n _opts="$1"
-    echo
-    echo "$prompt"
-    local i=1
-    for opt in "${_opts[@]}"; do
-      printf "  %2d) %s\n" "$i" "$opt"
-      i=$((i+1))
-    done
-    while true; do
-      read -r -p "Selecciona (1-${#_opts[@]}): " ans
-      if [[ "$ans" =~ ^[0-9]+$ ]] && (( ans>=1 && ans<=${#_opts[@]} )); then
-        REPLY="${_opts[$((ans-1))]}"
-        return 0
-      fi
-      echo "❌ Opción inválida."
-    done
-  }
-
-  # menu where each option is "value|description"; returns value in REPLY
+  # options: array of "value|description" (name by reference) -> returns value in REPLY
   _mf_menu_vd() {
-    local prompt="$1"; shift
-    local -n _opts="$1"
+    local prompt="$1"
+    local arr_name="$2"
+    local -n _opts="$arr_name"
+
     echo
     echo "$prompt"
     local i=1
@@ -1107,6 +1086,7 @@ ollama_modelfile_generate () {
       printf "  %2d) %-8s  %s\n" "$i" "$v" "$d"
       i=$((i+1))
     done
+
     while true; do
       read -r -p "Selecciona (1-${#_opts[@]}): " ans
       if [[ "$ans" =~ ^[0-9]+$ ]] && (( ans>=1 && ans<=${#_opts[@]} )); then
@@ -1122,11 +1102,11 @@ ollama_modelfile_generate () {
   local ROOT_DIR MF_DIR
   ROOT_DIR="$(pwd)/ollama"
   MF_DIR="$ROOT_DIR/modelfiles"
-  mkdir -p "$MF_DIR"
+  mkdir -p "$MF_DIR" || { echo "❌ No pude crear $MF_DIR"; return 1; }
 
   _mf_title
   echo "📁 Carpeta destino: $MF_DIR"
-  echo "ℹ️  Nota: el Modelfile quedará con FROM __BASE_MODEL__ para que lo reemplaces o lo uses con tu flujo."
+  echo "ℹ️  Queda FROM __BASE_MODEL__ para que lo reemplaces luego."
   _mf_pause
 
   # ===== Tipo / SYSTEM =====
@@ -1140,7 +1120,6 @@ ollama_modelfile_generate () {
     "docs|Redacción técnica"
     "promptlab|Experimentación de prompts"
   )
-
   _mf_menu_vd "Tipo de Modelfile (define el SYSTEM prompt):" TYPE_OPTS
   TYPE="$REPLY"
 
@@ -1158,71 +1137,71 @@ ollama_modelfile_generate () {
   # ===== Parámetros =====
   local TEMP TOP_P TOP_K NUM_CTX NUM_PRED REP_PEN REP_LAST_N PEN_NL
 
-  _mf_menu_vd "temperature → aleatoriedad (bajo=determinista, alto=creativo)" \
-    TEMP_OPTS=(
-      "0.2|Muy determinista (código, lógica)"
-      "0.35|Balanceado (uso general)"
-      "0.6|Más variación (conversación)"
-      "0.8|Creativo (ideas, texto libre)"
-    )
+  local -a TEMP_OPTS=(
+    "0.2|Muy determinista (código, lógica)"
+    "0.35|Balanceado (uso general)"
+    "0.6|Más variación (conversación)"
+    "0.8|Creativo (ideas, texto libre)"
+  )
+  _mf_menu_vd "temperature → aleatoriedad (bajo=determinista, alto=creativo)" TEMP_OPTS
   TEMP="$REPLY"
 
-  _mf_menu_vd "top_p → diversidad por probabilidad acumulada" \
-    TOP_P_OPTS=(
-      "0.7|Muy restrictivo"
-      "0.8|Restrictivo"
-      "0.9|Balanceado (recomendado)"
-      "0.95|Más diverso"
-      "1.0|Sin filtro"
-    )
+  local -a TOP_P_OPTS=(
+    "0.7|Muy restrictivo"
+    "0.8|Restrictivo"
+    "0.9|Balanceado (recomendado)"
+    "0.95|Más diverso"
+    "1.0|Sin filtro"
+  )
+  _mf_menu_vd "top_p → diversidad por probabilidad acumulada" TOP_P_OPTS
   TOP_P="$REPLY"
 
-  _mf_menu_vd "top_k → máximo de candidatos (0 = desactivar)" \
-    TOP_K_OPTS=(
-      "0|Desactivado"
-      "40|Común"
-      "50|Balanceado"
-      "100|Muy diverso"
-    )
+  local -a TOP_K_OPTS=(
+    "0|Desactivado"
+    "40|Común"
+    "50|Balanceado"
+    "100|Muy diverso"
+  )
+  _mf_menu_vd "top_k → máximo de candidatos (0 = desactivar)" TOP_K_OPTS
   TOP_K="$REPLY"
 
-  _mf_menu_vd "num_ctx → tamaño del contexto (tokens)" \
-    NUM_CTX_OPTS=(
-      "2048|Corto"
-      "4096|Normal (recomendado)"
-      "8192|Largo (si el modelo lo soporta)"
-    )
+  local -a NUM_CTX_OPTS=(
+    "2048|Corto"
+    "4096|Normal (recomendado)"
+    "8192|Largo (si el modelo lo soporta)"
+  )
+  _mf_menu_vd "num_ctx → tamaño del contexto (tokens)" NUM_CTX_OPTS
   NUM_CTX="$REPLY"
 
-  _mf_menu_vd "num_predict → máximo de tokens generados" \
-    NUM_PRED_OPTS=(
-      "256|Respuesta corta"
-      "512|Respuesta normal"
-      "1024|Respuesta larga"
-    )
+  local -a NUM_PRED_OPTS=(
+    "256|Respuesta corta"
+    "512|Respuesta normal"
+    "1024|Respuesta larga"
+  )
+  _mf_menu_vd "num_predict → máximo de tokens generados" NUM_PRED_OPTS
   NUM_PRED="$REPLY"
 
-  _mf_menu_vd "repeat_penalty → penaliza repetición" \
-    REP_PEN_OPTS=(
-      "1.0|Sin penalización"
-      "1.10|Balanceado (recomendado)"
-      "1.20|Fuerte (evita loops)"
-    )
+  local -a REP_PEN_OPTS=(
+    "1.0|Sin penalización"
+    "1.10|Balanceado (recomendado)"
+    "1.20|Fuerte (evita loops)"
+  )
+  _mf_menu_vd "repeat_penalty → penaliza repetición" REP_PEN_OPTS
   REP_PEN="$REPLY"
 
-  _mf_menu_vd "repeat_last_n → ventana donde se aplica la penalización" \
-    REP_LAST_N_OPTS=(
-      "64|Corta"
-      "128|Normal (recomendado)"
-      "256|Larga"
-    )
+  local -a REP_LAST_N_OPTS=(
+    "64|Corta"
+    "128|Normal (recomendado)"
+    "256|Larga"
+  )
+  _mf_menu_vd "repeat_last_n → ventana donde se aplica la penalización" REP_LAST_N_OPTS
   REP_LAST_N="$REPLY"
 
-  _mf_menu_vd "penalize_newline → reduce saltos de línea excesivos" \
-    PEN_NL_OPTS=(
-      "false|No penalizar"
-      "true|Penalizar saltos"
-    )
+  local -a PEN_NL_OPTS=(
+    "false|No penalizar"
+    "true|Penalizar saltos"
+  )
+  _mf_menu_vd "penalize_newline → reduce saltos de línea excesivos" PEN_NL_OPTS
   PEN_NL="$REPLY"
 
   # ===== Nombre (único input escrito) =====
@@ -1231,10 +1210,7 @@ ollama_modelfile_generate () {
   read -r -p "Nombre del Modelfile (único campo que se escribe) [my-${TYPE}]: " NAME
   NAME="${NAME:-my-${TYPE}}"
   NAME="$(echo "$NAME" | tr -cd 'a-zA-Z0-9._-')"
-  if [[ -z "$NAME" ]]; then
-    echo "❌ Nombre inválido."
-    return 1
-  fi
+  [[ -z "$NAME" ]] && { echo "❌ Nombre inválido."; return 1; }
 
   local FILE="$MF_DIR/Modelfile.${NAME}"
   if [[ -e "$FILE" ]]; then
@@ -1243,7 +1219,6 @@ ollama_modelfile_generate () {
     [[ "${yn,,}" == "y" ]] || { echo "Cancelado."; return 1; }
   fi
 
-  # ===== Escritura =====
   cat > "$FILE" <<EOF
 FROM __BASE_MODEL__
 
@@ -1265,17 +1240,6 @@ EOF
   _mf_print_hr
   echo "✅ Modelfile creado:"
   echo "   $FILE"
-  echo
-  echo "📌 Parámetros:"
-  echo "  type=$TYPE"
-  echo "  temperature=$TEMP"
-  echo "  top_p=$TOP_P"
-  echo "  top_k=$TOP_K"
-  echo "  num_ctx=$NUM_CTX"
-  echo "  num_predict=$NUM_PRED"
-  echo "  repeat_penalty=$REP_PEN"
-  echo "  repeat_last_n=$REP_LAST_N"
-  echo "  penalize_newline=$PEN_NL"
   _mf_print_hr
 }
 
