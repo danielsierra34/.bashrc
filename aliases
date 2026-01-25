@@ -1102,7 +1102,7 @@ ollama_modelfile_generate () {
 
   # ===== Directories (HOME) =====
   local ROOT_DIR MF_DIR
-  ROOT_DIR="$HOME/llama"
+  ROOT_DIR="$HOME/ollama"
   MF_DIR="$ROOT_DIR/modelfiles"
   mkdir -p "$MF_DIR" || { echo "❌ No pude crear $MF_DIR"; return 1; }
 
