@@ -1364,6 +1364,519 @@ ollama_model_generate () {
   fi
 }
 
+ollama_assistant () {
+  # -----------------------
+  # Config base
+  # -----------------------
+  local PORT="11434"
+  local DEFAULT_BASE="http://localhost:${PORT}"
+  local MF_DIR="$HOME/ollama/modelfiles"
+  local TMP_DIR="${TMPDIR:-/tmp}"
+
+  # Estado "en memoria" del asistente (no persistente salvo que apliques systemd)
+  local API_BASE="${OLLAMA_API_BASE:-$DEFAULT_BASE}"
+  local CUR_HOST_BIND="127.0.0.1"     # sugerencia para serve (local)
+  local CUR_ORIGINS="(sin tocar)"
+  local CUR_MAX_LOADED="(default)"
+  local CUR_NUM_PARALLEL="(default)"
+  local CUR_MAX_QUEUE="(default)"
+  local CUR_KEEP_ALIVE="(default)"
+  local CUR_NUM_GPU="(default)"
+
+  # -----------------------
+  # Utils
+  # -----------------------
+  _hr() { printf '%*s\n' "${COLUMNS:-90}" '' | tr ' ' '-'; }
+  _title() { _hr; echo "🦙 Ollama Server Assistant (una sola función)"; _hr; }
+  _note() { echo "ℹ️  $*"; }
+  _ok() { echo "✅ $*"; }
+  _warn() { echo "⚠️  $*"; }
+  _err() { echo "❌ $*"; }
+  _pause() { read -r -p "Enter para continuar..." _; }
+
+  _need() { command -v "$1" >/dev/null 2>&1 || { _err "Falta '$1' en PATH."; return 1; }; }
+
+  _ip_local() {
+    if command -v hostname >/dev/null 2>&1; then
+      local ip
+      ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+      [[ -n "$ip" ]] && { echo "$ip"; return 0; }
+    fi
+    ip route get 1.1.1.1 2>/dev/null | awk '/src/ {for(i=1;i<=NF;i++) if($i=="src") print $(i+1)}' | head -n1
+  }
+
+  # Menú simple: array de "key|title"
+  _menu() {
+    local prompt="$1"
+    local arr_name="$2"
+    local -n opts="$arr_name"
+    echo
+    echo "$prompt"
+    local i=1
+    for o in "${opts[@]}"; do
+      printf "  %2d) %s\n" "$i" "${o#*|}"
+      i=$((i+1))
+    done
+    while true; do
+      read -r -p "Selecciona (1-${#opts[@]}): " ans
+      if [[ "$ans" =~ ^[0-9]+$ ]] && (( ans>=1 && ans<=${#opts[@]} )); then
+        REPLY="${opts[$((ans-1))]%%|*}"
+        return 0
+      fi
+      _err "Opción inválida."
+    done
+  }
+
+  _set_api_base() {
+    echo
+    _note "API_BASE es la URL donde vive el servidor HTTP de Ollama."
+    _note "Ejemplos:"
+    echo "  - Local:  http://localhost:${PORT}"
+    echo "  - Remoto: http://192.168.1.100:${PORT}"
+    echo
+    read -r -p "API_BASE actual: ${API_BASE}. Nuevo (Enter para dejar igual): " nb
+    if [[ -n "$nb" ]]; then
+      API_BASE="$nb"
+      export OLLAMA_API_BASE="$API_BASE"
+      _ok "OLLAMA_API_BASE actualizado: $OLLAMA_API_BASE"
+    else
+      _note "Sin cambios."
+    fi
+  }
+
+  _health() {
+    _need curl || return 1
+    if curl -sf "$API_BASE/api/tags" >/dev/null; then
+      _ok "Ollama responde en $API_BASE"
+      return 0
+    else
+      _err "Ollama NO responde en $API_BASE"
+      _note "Si es local, prueba iniciar con: (opción) Iniciar servidor local/LAN"
+      return 1
+    fi
+  }
+
+  _show_tags() {
+    _need curl || return 1
+    _note "Esto consulta /api/tags, que devuelve los modelos instalados localmente en el servidor."
+    curl -s "$API_BASE/api/tags" || return 1
+    echo
+  }
+
+  _models_clean() {
+    _need curl || return 1
+    _note "Listado limpio de modelos (solo nombres) desde /api/tags."
+    curl -s "$API_BASE/api/tags" | sed -n 's/.*"name":"\([^"]*\)".*/\1/p' | sort -u
+  }
+
+  _serve_local() {
+    _need ollama || return 1
+    _title
+    echo "🧩 INICIAR SERVIDOR LOCAL (127.0.0.1:${PORT})"
+    _hr
+    cat <<EOF
+Concepto:
+- "ollama serve" levanta el servidor HTTP integrado.
+- Por defecto escucha SOLO en localhost (127.0.0.1). Eso significa:
+  ✅ Solo accesible desde esta misma máquina.
+  ✅ Más seguro por defecto.
+  ❌ No lo puede consumir otra máquina de tu red.
+
+Qué hace esta opción:
+- Ejecuta Ollama con OLLAMA_HOST=127.0.0.1 (escucha solo local).
+- Si el puerto ya está ocupado, normalmente es porque Ollama YA está corriendo
+  como servicio (muy común en Linux).
+EOF
+    echo
+    _pause
+    OLLAMA_HOST="127.0.0.1" ollama serve 2>&1 | awk '
+      /address already in use/ { print "⚠️  Puerto ocupado: probablemente Ollama ya está corriendo (o algo usa 11434)."; exit 0 }
+      { print }
+    '
+  }
+
+  _serve_lan() {
+    _need ollama || return 1
+    _title
+    echo "🌐 INICIAR SERVIDOR EN RED (0.0.0.0:${PORT})"
+    _hr
+    cat <<EOF
+Concepto:
+- Poner OLLAMA_HOST=0.0.0.0 hace que Ollama escuche en TODAS las interfaces de red.
+- Esto permite:
+  ✅ Acceso desde otra máquina en tu LAN (ej: tu laptop, un servidor, un contenedor).
+  ✅ Integración con apps externas (web, notebooks, etc.) desde otra IP.
+- Pero también implica:
+  ⚠️ Riesgo: cualquiera con acceso a tu red podría pegarle al endpoint.
+  ✅ Recomendación: abrir el puerto SOLO a tu red local (UFW) o usar VPN / reverse proxy con auth.
+
+Tip:
+- Después de levantarlo, prueba desde otra máquina:
+  curl http://<TU_IP>:11434/api/tags
+EOF
+    echo
+    _pause
+    _warn "Exponiendo a red. Considera firewall."
+    OLLAMA_HOST="0.0.0.0" ollama serve 2>&1 | awk '
+      /address already in use/ { print "⚠️  Puerto ocupado: probablemente Ollama ya está corriendo (o algo usa 11434)."; exit 0 }
+      { print }
+    '
+  }
+
+  _test_from_other_machine_instructions() {
+    local ip; ip="$(_ip_local)"
+    _title
+    echo "🧪 PROBAR ACCESO DESDE OTRA MÁQUINA"
+    _hr
+    cat <<EOF
+Paso a paso (LAN):
+1) Asegúrate de que Ollama esté escuchando en 0.0.0.0 (opción 'Iniciar servidor en red').
+2) Ubica la IP local de ESTA máquina (servidor):
+   - Detectada: ${ip:-"(no detectada)"}
+3) Desde la OTRA máquina, ejecuta:
+   curl http://${ip:-<TU_IP>}:${PORT}/api/tags
+
+Interpretación:
+- Si responde con JSON y lista de modelos -> ✅ OK
+- Si no responde -> revisa:
+  - firewall/ufw
+  - que realmente esté en 0.0.0.0
+  - que ambas máquinas estén en la misma red
+EOF
+    _pause
+  }
+
+  _generate_http() {
+    _need curl || return 1
+    _title
+    echo "✍️ GENERAR TEXTO VÍA HTTP (/api/generate)"
+    _hr
+    cat <<EOF
+Concepto:
+- /api/generate es una forma de usar Ollama como "microservicio" desde scripts.
+- En vez de 'ollama run', tú mandas un JSON por HTTP con:
+  - model: nombre del modelo (ej. llama3.1:8b o tu modelo personalizado)
+  - prompt: tu pregunta
+  - stream: false (para que devuelva todo de una)
+
+Útil para:
+- Automatizaciones (resúmenes, templates, transformaciones)
+- Integraciones (web apps, pipelines, cron jobs)
+EOF
+    echo
+    _pause
+
+    # Elegir modelo desde API
+    local model
+    model="$(_models_clean | head -n 1)"
+    echo
+    _note "Modelo sugerido (primer modelo del servidor): ${model:-"(no encontrado)"}"
+    read -r -p "Modelo a usar (Enter para '${model}'): " m2
+    model="${m2:-$model}"
+    [[ -n "$model" ]] || { _err "No hay modelo. Revisa /api/tags."; _pause; return 1; }
+
+    echo
+    read -r -p "Prompt: " prompt
+    [[ -n "$prompt" ]] || { _err "Prompt vacío."; _pause; return 1; }
+
+    local prompt_json="${prompt//\\/\\\\}"
+    prompt_json="${prompt_json//\"/\\\"}"
+
+    local payload
+    payload="$(cat <<EOF
+{
+  "model": "$model",
+  "prompt": "$prompt_json",
+  "stream": false
+}
+EOF
+)"
+    echo
+    _note "Enviando solicitud a $API_BASE/api/generate ..."
+    local out
+    out="$(curl -s "$API_BASE/api/generate" -d "$payload")" || { _err "Falló curl"; _pause; return 1; }
+    echo
+    _hr
+    echo "Respuesta (solo texto):"
+    _hr
+    echo "$out" | sed -n 's/.*"response":"\([^"]*\)".*/\1/p' | sed 's/\\n/\n/g; s/\\"/"/g; s/\\\\/\\/g'
+    echo
+    _pause
+  }
+
+  _systemd_apply_dropin() {
+    _need systemctl || return 1
+    _title
+    echo "🧩 SYSTEMD DROP-IN (Linux) — Configuración persistente"
+    _hr
+    cat <<EOF
+Concepto:
+- En Linux, Ollama frecuentemente corre como servicio (ollama.service).
+- Si quieres que SIEMPRE arranque con parámetros de servidor (ej. escuchar en 0.0.0.0),
+  se recomienda un "drop-in" en systemd.
+- Un drop-in es un archivo adicional que modifica variables sin editar el servicio original.
+
+Qué variables tocar (las del texto que compartiste):
+- OLLAMA_HOST=0.0.0.0        -> escuchar en todas las interfaces (LAN)
+- OLLAMA_ORIGINS=*           -> permite CORS desde cualquier origen (útil web; en prod restringir)
+- OLLAMA_MAX_LOADED_MODELS=1 -> cuántos modelos mantiene en memoria al mismo tiempo
+- OLLAMA_NUM_PARALLEL=1      -> peticiones simultáneas procesadas
+- OLLAMA_MAX_QUEUE=512       -> tamaño de la cola de espera
+- OLLAMA_KEEP_ALIVE=600      -> segundos que el modelo se mantiene cargado tras una petición
+- OLLAMA_NUM_GPU=1           -> número de GPUs permitidas
+
+IMPORTANTE:
+- Exponer 0.0.0.0 sin firewall es riesgoso.
+- Para LAN, lo ideal: firewall UFW permitiendo solo tu rango (ej. 192.168.0.0/16).
+EOF
+    echo
+    _pause
+
+    read -r -p "¿Quieres crear/aplicar el drop-in recomendado (requiere sudo)? (y/N): " yn
+    [[ "${yn,,}" == "y" ]] || { _note "Cancelado."; _pause; return 0; }
+
+    local dropin_dir="/etc/systemd/system/ollama.service.d"
+    local dropin_file="$dropin_dir/10-ollama-lan.conf"
+
+    sudo mkdir -p "$dropin_dir" || { _err "No pude crear $dropin_dir"; _pause; return 1; }
+
+    sudo tee "$dropin_file" >/dev/null <<'EOF'
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+Environment="OLLAMA_ORIGINS=*"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_MAX_QUEUE=512"
+Environment="OLLAMA_KEEP_ALIVE=600"
+Environment="OLLAMA_NUM_GPU=1"
+EOF
+
+    _ok "Drop-in creado: $dropin_file"
+    _note "Reiniciando servicio para aplicar cambios..."
+    sudo systemctl daemon-reload
+    sudo systemctl restart ollama.service
+    sudo systemctl status ollama.service --no-pager -l | sed -n '1,14p'
+    _pause
+  }
+
+  _systemd_edit() {
+    _need systemctl || return 1
+    _title
+    echo "📝 EDITAR SYSTEMD (systemctl edit ollama.service)"
+    _hr
+    cat <<EOF
+Esto abre el editor de systemd para que puedas crear un drop-in manualmente.
+
+Tip:
+- Pega el bloque bajo [Service] justo después del comentario:
+  '### Anything between here and the comment below will become the contents of the drop-in file.'
+
+Ejemplo (LAN + CORS + límites):
+[Service]
+Environment="OLLAMA_HOST=0.0.0.0"
+Environment="OLLAMA_ORIGINS=*"
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+Environment="OLLAMA_NUM_PARALLEL=1"
+Environment="OLLAMA_MAX_QUEUE=512"
+Environment="OLLAMA_KEEP_ALIVE=600"
+Environment="OLLAMA_NUM_GPU=1"
+
+Luego:
+  sudo systemctl restart ollama.service
+EOF
+    _pause
+    sudo systemctl edit ollama.service
+    _pause
+  }
+
+  _ufw_allow_lan() {
+    _need ufw || return 1
+    _title
+    echo "🧱 FIREWALL UFW — Abrir 11434 SOLO para LAN"
+    _hr
+    cat <<EOF
+Concepto (muy importante):
+- Si expones Ollama con OLLAMA_HOST=0.0.0.0, el puerto 11434 queda accesible en red.
+- Lo seguro es permitir SOLO tu red local (LAN) y bloquear el resto.
+
+Ejemplos de rangos típicos:
+- 192.168.0.0/16
+- 10.0.0.0/8
+- 172.16.0.0/12
+
+Esta opción crea una regla:
+  ufw allow from <CIDR> to any port 11434 proto tcp
+EOF
+    echo
+    read -r -p "Ingresa CIDR permitido (ej 192.168.0.0/16): " cidr
+    [[ -n "$cidr" ]] || { _err "CIDR vacío."; _pause; return 1; }
+    sudo ufw allow from "$cidr" to any port "$PORT" proto tcp
+    _ok "Regla aplicada. Verifica con: sudo ufw status numbered"
+    _pause
+  }
+
+  _ufw_deny_port() {
+    _need ufw || return 1
+    _title
+    echo "🧱 FIREWALL UFW — Denegar 11434 (global)"
+    _hr
+    cat <<EOF
+Concepto:
+- Si abriste el puerto por accidente o quieres cerrarlo, puedes denegar 11434/tcp.
+- Ojo: si tienes reglas allow específicas, UFW aplica por orden. Esto es una acción “fuerte”.
+
+Comando:
+  sudo ufw deny 11434/tcp
+EOF
+    _pause
+    read -r -p "¿Aplicar deny global a 11434/tcp? (y/N): " yn
+    [[ "${yn,,}" == "y" ]] || { _note "Cancelado."; _pause; return 0; }
+    sudo ufw deny "$PORT"/tcp
+    _ok "Puerto denegado. Verifica con: sudo ufw status numbered"
+    _pause
+  }
+
+  _show_workspace_info() {
+    _title
+    echo "📁 WORKSPACE: Modelfiles y conceptos"
+    _hr
+    cat <<EOF
+Tu carpeta de trabajo (workspace) para Modelfiles:
+  ${MF_DIR}
+
+Ahí guardas:
+- Modelfiles (personalizaciones / recetas)
+- scripts de Bash
+- todo lo que versionas en Git
+
+Ollama guarda internamente modelos y metadata en:
+  ~/.ollama
+(esa carpeta no se edita manualmente)
+
+Consejo práctico:
+- Versiona ~/ollama/modelfiles en Git.
+- En otra máquina, solo necesitas:
+    ollama pull <modelo_base>
+    ollama create <nuevo> -f <Modelfile>
+EOF
+    echo
+    if [[ -d "$MF_DIR" ]]; then
+      _note "Modelfiles detectados:"
+      find "$MF_DIR" -maxdepth 1 -type f -name 'Modelfile.*' -printf '  - %f\n' | sort
+    else
+      _warn "No existe $MF_DIR (créala o genera Modelfiles primero)."
+    fi
+    _pause
+  }
+
+  _show_env_cheatsheet() {
+    _title
+    echo "🧾 VARIABLES DE ENTORNO (cheat sheet) — qué son y para qué sirven"
+    _hr
+    cat <<'EOF'
+Estas variables se usan para configurar el servidor HTTP de Ollama, especialmente cuando lo expones en red
+o quieres controlar consumo de recursos.
+
+1) OLLAMA_HOST
+   - Qué controla: en qué IP/Interfaz escucha el servidor.
+   - Ejemplos:
+     * 127.0.0.1  -> solo local (seguro por defecto)
+     * 0.0.0.0    -> todas las interfaces (LAN/containers) ⚠️ requiere firewall
+   - Cuándo usar 0.0.0.0:
+     * cuando quieras consumir Ollama desde otra máquina o contenedor
+
+2) OLLAMA_ORIGINS
+   - Qué controla: desde qué "origin" se aceptan solicitudes (CORS) para apps web.
+   - Valor:
+     * * -> acepta cualquier origen (fácil para pruebas, menos seguro)
+   - Recomendación:
+     * en producción, restringir al dominio exacto de tu app web
+
+3) OLLAMA_MAX_LOADED_MODELS
+   - Qué controla: cuántos modelos puede mantener cargados al mismo tiempo en RAM/VRAM.
+   - Idea:
+     * si tienes poca memoria, pon 1 para evitar que se carguen varios y reviente la RAM
+   - Trade-off:
+     * más bajo -> menos memoria, pero puede recargar modelos más seguido
+
+4) OLLAMA_NUM_PARALLEL
+   - Qué controla: cuántas solicitudes puede procesar en paralelo (concurrencia real).
+   - Trade-off:
+     * más alto -> más throughput, pero más presión de CPU/GPU y memoria
+
+5) OLLAMA_MAX_QUEUE
+   - Qué controla: cuántas solicitudes se pueden encolar esperando.
+   - Útil:
+     * cuando tienes clientes múltiples y prefieres cola en vez de fallar rápido
+   - Riesgo:
+     * cola demasiado grande -> latencias largas, usuarios “esperando” mucho
+
+6) OLLAMA_KEEP_ALIVE
+   - Qué controla: cuánto tiempo (segundos) el modelo permanece cargado tras terminar una petición.
+   - Ejemplo:
+     * 600 -> 10 minutos “caliente”
+   - Trade-off:
+     * alto -> respuestas futuras más rápidas
+     * bajo -> menos memoria retenida
+
+7) OLLAMA_NUM_GPU
+   - Qué controla: cuántas GPUs puede usar el servidor.
+   - Caso típico:
+     * 1 -> una sola GPU disponible
+   - Nota:
+     * si no tienes GPU, el modelo correrá en CPU (más lento)
+EOF
+    _pause
+  }
+
+  # -----------------------
+  # Menú principal
+  # -----------------------
+  while true; do
+    _title
+    echo "API_BASE actual: $API_BASE"
+    echo "Workspace Modelfiles: $MF_DIR"
+    _hr
+    echo "¿Qué quieres hacer?"
+    local -a MAIN=(
+      "health|✅ Verificar servidor (health check) + tips si falla"
+      "tags|📦 Ver modelos instalados (GET /api/tags) — JSON completo"
+      "models|📃 Listar modelos (limpio) — nombres desde /api/tags"
+      "gen|✍️ Generar texto por HTTP (POST /api/generate) — sin usar 'ollama run'"
+      "setbase|🔧 Cambiar API_BASE (apuntar a local o remoto)"
+      "serve_local|🖥️ Iniciar servidor local (127.0.0.1) — seguro por defecto"
+      "serve_lan|🌐 Iniciar servidor en red (0.0.0.0) — accesible desde LAN ⚠️"
+      "test_lan|🧪 Guía para probar acceso desde otra máquina (curl a tu IP)"
+      "env_help|🧾 Explicación generosa de variables (OLLAMA_HOST, ORIGINS, etc.)"
+      "systemd_quick|🧩 Aplicar drop-in systemd recomendado (LAN + límites) (Linux)"
+      "systemd_edit|📝 Abrir editor systemd (systemctl edit ollama.service) (Linux)"
+      "ufw_allow|🧱 UFW: permitir 11434 SOLO para tu LAN (CIDR)"
+      "ufw_deny|🧱 UFW: denegar 11434 global (cerrar puerto)"
+      "workspace|📁 Ver info de workspace (~/ollama/modelfiles) + listado"
+      "exit|Salir"
+    )
+
+    _menu "Menú principal:" MAIN
+    case "$REPLY" in
+      health) _health; _pause ;;
+      tags) _show_tags; _pause ;;
+      models) _models_clean; echo; _pause ;;
+      gen) _generate_http ;;
+      setbase) _set_api_base; _pause ;;
+      serve_local) _serve_local ;;
+      serve_lan) _serve_lan ;;
+      test_lan) _test_from_other_machine_instructions ;;
+      env_help) _show_env_cheatsheet ;;
+      systemd_quick) _systemd_apply_dropin ;;
+      systemd_edit) _systemd_edit ;;
+      ufw_allow) _ufw_allow_lan ;;
+      ufw_deny) _ufw_deny_port ;;
+      workspace) _show_workspace_info ;;
+      exit) _ok "Listo."; return 0 ;;
+      *) _err "Opción desconocida."; _pause ;;
+    esac
+  done
+}
 
 
 
