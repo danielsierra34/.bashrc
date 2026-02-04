@@ -2005,7 +2005,246 @@ arduino_install() {
   echo "========================================="
 }
 
+# ===============================
+# Arduino WSL Assistant
+# ===============================
+ardu() {
+  local assistant="$HOME/bin/ardu-wsl.sh"
 
+  if [[ ! -x "$assistant" ]]; then
+    echo "❌ No se encuentra el asistente en $assistant"
+    echo "👉 Asegúrate de que exista y tenga permisos de ejecución"
+    return 1
+  fi
+
+  # Asegurar que estamos en WSL
+  if ! grep -qi microsoft /proc/version; then
+    echo "❌ Esta función está pensada para ejecutarse dentro de WSL"
+    return 1
+  fi
+
+  # Ejecutar el asistente
+  "$assistant"
+}
+
+
+arduino_run() {
+  set +e  # para no morir por un fallo en submenu
+  # ===== helpers =====
+  _ardu_die() { echo "❌ $*" >&2; return 1; }
+  _ardu_warn(){ echo "⚠️  $*" >&2; }
+  _ardu_ok()  { echo "✅ $*"; }
+
+  _ardu_is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
+
+  _ardu_ps() {
+    # Ejecuta PowerShell desde WSL y limpia CRLF
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$*" 2>/dev/null | tr -d '\r'
+  }
+
+  _ardu_need() {
+    command -v arduino-cli >/dev/null 2>&1 || { _ardu_die "No encuentro arduino-cli en WSL."; return 1; }
+    command -v powershell.exe >/dev/null 2>&1 || { _ardu_die "No encuentro powershell.exe (¿estás en WSL?)."; return 1; }
+    _ardu_is_wsl || { _ardu_die "Esta función está pensada para ejecutarse dentro de WSL."; return 1; }
+    return 0
+  }
+
+  _ardu_usb_list() {
+    _ardu_ps "usbipd list"
+  }
+
+  _ardu_choose_busid() {
+    local out busids n
+    out="$(_ardu_usb_list)"
+    echo "$out"
+    busids="$(echo "$out" | awk '/^[0-9]+-[0-9]+/ {print $1}')"
+    [ -n "$busids" ] || { _ardu_die "No vi BUSID. Conecta una placa y vuelve a intentar."; return 1; }
+
+    echo
+    echo "BUSIDs detectados:"
+    nl -w2 -s") " <<<"$busids"
+    echo
+    read -rp "Elige número: " n
+    echo "$busids" | sed -n "${n}p"
+  }
+
+  _ardu_attach_busid() {
+    local busid="$1"
+    [ -n "$busid" ] || { _ardu_die "BUSID vacío"; return 1; }
+
+    echo "➡️  Intentando attach de $busid a WSL..."
+    _ardu_ps "usbipd attach --wsl --busid $busid" >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+      _ardu_ok "Attach OK ($busid)"
+      return 0
+    fi
+
+    _ardu_warn "No pude hacer attach automático."
+    echo
+    echo "👉 Causas típicas:"
+    echo "   - Windows está usando el COM (cierra Arduino/Serial Monitor/VS Code Windows)."
+    echo "   - Falta 'bind' con admin (1 sola vez por dispositivo)."
+    echo
+    echo "👉 Ejecuta en PowerShell *como Administrador*:"
+    echo "    usbipd bind --busid $busid --force"
+    echo "    usbipd attach --wsl --busid $busid"
+    return 1
+  }
+
+  _ardu_list_ports() {
+    ls -1 /dev/ttyUSB* /dev/ttyACM* 2>/dev/null
+  }
+
+  _ardu_choose_port() {
+    local ports n
+    ports="$(_ardu_list_ports)"
+    [ -n "$ports" ] || { _ardu_die "No veo /dev/ttyUSB* ni /dev/ttyACM*. ¿Hiciste attach?"; return 1; }
+    echo
+    echo "Puertos disponibles:"
+    nl -w2 -s") " <<<"$ports"
+    echo
+    read -rp "Elige número: " n
+    echo "$ports" | sed -n "${n}p"
+  }
+
+  _ardu_choose_board() {
+    local boards n
+    # Puedes ajustar nombres aquí
+    boards=$'ESP8266_NodeMCU (nodemcuv2)\nESP32_DevModule (esp32)'
+    echo
+    echo "Placas:"
+    nl -w2 -s") " <<<"$boards"
+    echo
+    read -rp "Elige número: " n
+    echo "$boards" | sed -n "${n}p"
+  }
+
+  _ardu_fqbn_from_choice() {
+    case "$1" in
+      ESP8266*) echo "esp8266:esp8266:nodemcuv2" ;;
+      ESP32*)   echo "esp32:esp32:esp32" ;;
+      *)        echo "" ;;
+    esac
+  }
+
+  _ardu_pick_sketch() {
+    local p
+    echo
+    read -rp "Ruta del sketch (carpeta) o .ino (ej: ~/arduino/1 o ~/arduino/lab.ino): " p
+    p="${p/#\~/$HOME}"
+    [ -e "$p" ] || { _ardu_die "No existe: $p"; return 1; }
+    echo "$p"
+  }
+
+  _ardu_compile() {
+    local fqbn="$1" path="$2"
+    echo "➡️  Compilando (FQBN=$fqbn)..."
+    if [ -f "$path" ] && [[ "$path" == *.ino ]]; then
+      arduino-cli compile --fqbn "$fqbn" --input-file "$path"
+    else
+      arduino-cli compile --fqbn "$fqbn" "$path"
+    fi
+  }
+
+  _ardu_upload() {
+    local fqbn="$1" port="$2" path="$3"
+    echo "➡️  Subiendo a $port (FQBN=$fqbn)..."
+    if [ -f "$path" ] && [[ "$path" == *.ino ]]; then
+      arduino-cli upload -p "$port" --fqbn "$fqbn" --input-file "$path"
+    else
+      arduino-cli upload -p "$port" --fqbn "$fqbn" "$path"
+    fi
+  }
+
+  _ardu_monitor() {
+    local port="$1" baud="${2:-115200}"
+    echo "➡️  Monitor en $port @ $baud (Ctrl+C para salir)"
+    arduino-cli monitor -p "$port" -c "baudrate=$baud"
+  }
+
+  # ===== main menu =====
+  _ardu_need || return 1
+
+  while true; do
+    echo "======================================"
+    echo "  ardu (WSL) - Arduino CLI Assistant  "
+    echo "======================================"
+    echo "1) Listar USB (Windows usbipd list)"
+    echo "2) Attach USB a WSL (elige BUSID)"
+    echo "3) Listar puertos WSL (/dev/ttyUSB*, /dev/ttyACM*)"
+    echo "4) Compilar (elige placa + sketch)"
+    echo "5) Upload   (elige placa + puerto + sketch)"
+    echo "6) Monitor  (elige puerto)"
+    echo "7) Flujo completo: attach -> compile -> upload -> monitor"
+    echo "0) Salir"
+    echo
+    read -rp "Opción: " opt
+
+    case "${opt:-}" in
+      1)
+        _ardu_usb_list
+        ;;
+      2)
+        busid="$(_ardu_choose_busid)" || continue
+        _ardu_attach_busid "$busid"
+        ;;
+      3)
+        _ardu_list_ports || true
+        ;;
+      4)
+        b="$(_ardu_choose_board)" || continue
+        fqbn="$(_ardu_fqbn_from_choice "$b")"
+        [ -n "$fqbn" ] || { _ardu_warn "No pude mapear placa."; continue; }
+        path="$(_ardu_pick_sketch)" || continue
+        _ardu_compile "$fqbn" "$path"
+        ;;
+      5)
+        b="$(_ardu_choose_board)" || continue
+        fqbn="$(_ardu_fqbn_from_choice "$b")"
+        [ -n "$fqbn" ] || { _ardu_warn "No pude mapear placa."; continue; }
+        port="$(_ardu_choose_port)" || continue
+        path="$(_ardu_pick_sketch)" || continue
+        _ardu_upload "$fqbn" "$port" "$path"
+        ;;
+      6)
+        port="$(_ardu_choose_port)" || continue
+        read -rp "Baudrate (default 115200): " baud
+        baud="${baud:-115200}"
+        _ardu_monitor "$port" "$baud"
+        ;;
+      7)
+        busid="$(_ardu_choose_busid)" || continue
+        _ardu_attach_busid "$busid" || continue
+        port="$(_ardu_choose_port)" || continue
+        b="$(_ardu_choose_board)" || continue
+        fqbn="$(_ardu_fqbn_from_choice "$b")"
+        [ -n "$fqbn" ] || { _ardu_warn "No pude mapear placa."; continue; }
+        path="$(_ardu_pick_sketch)" || continue
+
+        _ardu_compile "$fqbn" "$path" || continue
+        _ardu_upload "$fqbn" "$port" "$path" || continue
+
+        read -rp "¿Abrir monitor ahora? (Y/n): " yn
+        yn="${yn:-Y}"
+        if [[ "$yn" =~ ^[Yy]$ ]]; then
+          read -rp "Baudrate (default 115200): " baud
+          baud="${baud:-115200}"
+          _ardu_monitor "$port" "$baud"
+        fi
+        ;;
+      0)
+        return 0
+        ;;
+      *)
+        _ardu_warn "Opción inválida."
+        ;;
+    esac
+
+    echo
+    read -rp "Enter para continuar..." _
+    echo
+  done
+}
 
 
 
