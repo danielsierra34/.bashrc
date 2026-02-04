@@ -2038,8 +2038,8 @@ arduino_run() {
   _ardu_is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
 
   _ardu_ps() {
-    # Ejecuta PowerShell desde WSL y limpia CRLF
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$*" 2>/dev/null | tr -d '\r'
+    local cmd="$*"
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& 'C:\Program Files\usbipd-win\usbipd.exe' $cmd" 2>&1 | tr -d '\r'
   }
 
   _ardu_need() {
