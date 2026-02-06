@@ -58,6 +58,7 @@ _ardu_simple_valid_fqbn() {
 
 _ardu_simple_auto_fqbn() {
   command -v python3 >/dev/null || return 1
+  _ardu_simple_ensure_usb_attached >/dev/null 2>&1 || true
   local detected
   detected="$(arduino-cli board list --format json 2>/dev/null | python3 - <<'PY'
 import json, sys
@@ -146,7 +147,37 @@ _ardu_simple_port() {
     printf '%s\n' "$ARDUINO_PORT"
     return 0
   fi
+  _ardu_simple_ensure_usb_attached || return 1
   _ardu_simple_single_port
+}
+
+_ardu_simple_usb_busid_hint() {
+  command -v powershell.exe >/dev/null 2>&1 || return 1
+  powershell.exe -NoProfile -Command "usbipd list" 2>/dev/null | tr -d '\r' |
+    awk '
+      BEGIN {IGNORECASE=1}
+      /^BUSID/ {next}
+      NF < 3 {next}
+      /USB-SERIAL|CP210|CH340|Arduino/ {print $1; exit}
+    '
+}
+
+_ardu_simple_attach_usb() {
+  command -v powershell.exe >/dev/null 2>&1 || return 1
+  local busid="${ARDUINO_USB_BUSID:-$(_ardu_simple_usb_busid_hint)}"
+  [ -n "$busid" ] || { echo "❌ No pude deducir el BUSID. Exporta ARDUINO_USB_BUSID=BUSID." >&2; return 1; }
+  powershell.exe -NoProfile -Command "usbipd attach --wsl --busid $busid" >/dev/null 2>&1 && return 0
+  echo "⚠️  usbipd attach falló; prueba ejecutar en PowerShell (Admin):" >&2
+  echo "    usbipd bind --busid $busid --force" >&2
+  echo "    usbipd attach --wsl --busid $busid" >&2
+  return 1
+}
+
+_ardu_simple_ensure_usb_attached() {
+  ls /dev/ttyACM* /dev/ttyUSB* >/dev/null 2>&1 && return 0
+  _ardu_simple_attach_usb || return 1
+  sleep 1
+  ls /dev/ttyACM* /dev/ttyUSB* >/dev/null 2>&1 || { echo "❌ No se detectó el puerto serial tras intentar usbipd attach." >&2; return 1; }
 }
 
 _ardu_simple_resolve_folder() {
