@@ -71,6 +71,7 @@ _ardu_simple_choose_dir() {
 }
 
 _ardu_simple_fqbn_file="$HOME/.arduino-helper-fqbn"
+_ardu_simple_busid_file="$HOME/.arduino-helper-busid"
 
 _ardu_simple_valid_fqbn() {
   local value="$1"
@@ -78,6 +79,10 @@ _ardu_simple_valid_fqbn() {
     *:*:*) return 0 ;;
     *) return 1 ;;
   esac
+}
+
+_ardu_simple_valid_busid() {
+  [[ "$1" =~ ^[0-9]+-[0-9]+$ ]]
 }
 
 _ardu_simple_auto_fqbn() {
@@ -186,36 +191,64 @@ _ardu_simple_usb_busid_hint() {
     '
 }
 
+_ardu_simple_busid() {
+  local busid
+  if [ -n "$ARDUINO_USB_BUSID" ]; then
+    if _ardu_simple_valid_busid "$ARDUINO_USB_BUSID"; then
+      echo "$ARDUINO_USB_BUSID"
+      return 0
+    else
+      echo "⚠️  ARDUINO_USB_BUSID='$ARDUINO_USB_BUSID' no tiene formato válido (ej. 2-6)." >&2
+    fi
+  fi
+  if [ -f "$_ardu_simple_busid_file" ]; then
+    read -r busid < "$_ardu_simple_busid_file"
+    if _ardu_simple_valid_busid "$busid"; then
+      echo "$busid"
+      return 0
+    fi
+  fi
+  busid="$(_ardu_simple_usb_busid_hint)"
+  if _ardu_simple_valid_busid "$busid"; then
+    printf '%s\n' "$busid" > "$_ardu_simple_busid_file"
+    echo "$busid"
+    return 0
+  fi
+  command -v powershell.exe >/dev/null 2>&1 || {
+    echo "❌ No pude deducir el BUSID automáticamente y no hay powershell.exe." >&2
+    return 1
+  }
+  echo "⚠️  No pude deducir el BUSID automáticamente. Salida de 'usbipd list':" >&2
+  local usbipd_output
+  usbipd_output="$(powershell.exe -NoProfile -Command "usbipd list" 2>/dev/null | tr -d '\r')"
+  if [ -n "$usbipd_output" ]; then
+    echo "$usbipd_output"
+  else
+    echo "   (sin salida de usbipd; confirma que esté instalado en Windows)" >&2
+  fi
+  while true; do
+    if [ -t 0 ]; then
+      read -rp "Ingresa el BUSID a adjuntar (ej. 2-6): " busid
+    elif [ -e /dev/tty ]; then
+      read -rp "Ingresa el BUSID a adjuntar (ej. 2-6): " busid < /dev/tty
+    else
+      echo "❌ No hay TTY para introducir el BUSID. Exporta ARDUINO_USB_BUSID=BUSID y reintenta." >&2
+      return 1
+    fi
+    busid="${busid//[[:space:]]/}"
+    if _ardu_simple_valid_busid "$busid"; then
+      printf '%s\n' "$busid" > "$_ardu_simple_busid_file"
+      echo "$busid"
+      return 0
+    fi
+    echo "⚠️  '$busid' no tiene formato válido (ej. 2-6). Intenta de nuevo." >&2
+  done
+}
+
 _ardu_simple_attach_usb() {
   command -v powershell.exe >/dev/null 2>&1 || return 1
-  local busid="${ARDUINO_USB_BUSID:-$(_ardu_simple_usb_busid_hint)}"
-  if [ -z "$busid" ]; then
-    echo "⚠️  No pude deducir el BUSID automáticamente. Salida de 'usbipd list':" >&2
-    local usbipd_output
-    usbipd_output="$(powershell.exe -NoProfile -Command "usbipd list" 2>/dev/null | tr -d '\r')"
-    if [ -n "$usbipd_output" ]; then
-      echo "$usbipd_output"
-    else
-      echo "   (sin salida de usbipd; confirma que usbipd esté instalado en Windows)" >&2
-    fi
-    while true; do
-      if [ -t 0 ]; then
-        read -rp "Ingresa el BUSID a adjuntar (ej. 2-6): " busid
-      elif [ -e /dev/tty ]; then
-        read -rp "Ingresa el BUSID a adjuntar (ej. 2-6): " busid < /dev/tty
-      else
-        echo "❌ No hay TTY para introducir el BUSID. Exporta ARDUINO_USB_BUSID=BUSID y reintenta." >&2
-        return 1
-      fi
-      busid="${busid//[[:space:]]/}"
-      if [[ "$busid" =~ ^[0-9]+-[0-9]+$ ]]; then
-        break
-      fi
-      echo "⚠️  '$busid' no tiene formato válido (ej. 2-6). Intenta de nuevo." >&2
-      busid=""
-    done
-  fi
-  [ -n "$busid" ] || { echo "❌ No se proporcionó BUSID. Exporta ARDUINO_USB_BUSID=BUSID." >&2; return 1; }
+  local busid
+  busid="$(_ardu_simple_busid)" || return 1
   powershell.exe -NoProfile -Command "usbipd attach --wsl --busid $busid" >/dev/null 2>&1 && return 0
   echo "⚠️  usbipd attach falló; prueba ejecutar en PowerShell (Admin):" >&2
   echo "    usbipd bind --busid $busid --force" >&2

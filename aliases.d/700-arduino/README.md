@@ -12,7 +12,7 @@ Asistente para instalar Arduino CLI, configurar placas comunes y exponer disposi
 - upload: usa la misma carpeta (nombre de archivo = nombre de carpeta), detecta la única placa conectada (o `ARDUINO_PORT`) y ejecuta `arduino-cli upload` sin pedirte el sketch explícitamente.
 
 Ambos comandos (y `arduino_run`) intentan automáticamente:
-1. Adjuntar la placa a WSL usando `usbipd attach --wsl --busid …` a través de `powershell.exe`. Si tienes un BUSID específico puedes forzarlo con `export ARDUINO_USB_BUSID=2-6`.
+1. Adjuntar la placa a WSL usando `usbipd attach --wsl --busid …` a través de `powershell.exe`. El BUSID se detecta con `usbipd list`, se cachea en `~/.arduino-helper-busid` y puedes sobreescribirlo con `export ARDUINO_USB_BUSID=2-6`.
 2. Detectar el puerto `/dev/ttyUSB*` y el FQBN con `arduino-cli board list --format json`. Cuando solo hay una placa, el FQBN se guarda en `~/.arduino-helper-fqbn` para usos futuros.
 - monitor: abre `arduino-cli monitor` contra la placa detectada (o `ARDUINO_PORT`) usando 115200 baudios por defecto; puedes pasar otro baudrate como primer argumento.
 
