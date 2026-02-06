@@ -194,7 +194,30 @@ arduino_run() {
         fi
         compilar "$choice"
         ;;
-      2) upload ;;
+      2)
+        dirs="$(_ardu_simple_list_dirs "$PWD")"
+        if [ -z "$dirs" ]; then
+          echo "❌ No encontré carpetas con .ino desde $(pwd)"
+          continue
+        fi
+        mapfile -t dir_array <<<"$dirs"
+        if [ "${#dir_array[@]}" -eq 1 ]; then
+          choice="${dir_array[0]}"
+        else
+          echo "Carpetas encontradas:"
+          for idx in "${!dir_array[@]}"; do
+            printf '%2d) %s\n' $((idx+1)) "${dir_array[idx]}"
+          done
+          read -rp "Elige carpeta: " sel
+          if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -le "${#dir_array[@]}" ]; then
+            choice="${dir_array[sel-1]}"
+          else
+            echo "⚠️  Selección inválida"
+            continue
+          fi
+        fi
+        upload "$choice"
+        ;;
       3)
         read -rp "Baudrate [115200]: " b
         b="${b:-115200}"
@@ -205,7 +228,6 @@ arduino_run() {
     esac
   done
 }
-
 
 
 
