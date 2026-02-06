@@ -302,11 +302,17 @@ _ardu_simple_attach_usb() {
   return 1
 }
 
+_ardu_simple_has_serial() {
+  compgen -G "/dev/ttyACM*" >/dev/null 2>&1 && return 0
+  compgen -G "/dev/ttyUSB*" >/dev/null 2>&1 && return 0
+  return 1
+}
+
 _ardu_simple_ensure_usb_attached() {
-  ls /dev/ttyACM* /dev/ttyUSB* >/dev/null 2>&1 && return 0
+  _ardu_simple_has_serial && return 0
   _ardu_simple_attach_usb || return 1
   sleep 1
-  ls /dev/ttyACM* /dev/ttyUSB* >/dev/null 2>&1 || { echo "❌ No se detectó el puerto serial tras intentar usbipd attach." >&2; return 1; }
+  _ardu_simple_has_serial || { echo "❌ No se detectó el puerto serial tras intentar usbipd attach." >&2; return 1; }
 }
 
 _ardu_simple_resolve_folder() {
