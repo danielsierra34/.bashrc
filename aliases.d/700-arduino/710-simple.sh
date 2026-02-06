@@ -9,15 +9,8 @@ _ardu_simple_need_cli() {
 _ardu_simple_list_dirs() {
   local root
   root="${1:-$PWD}"
-  find "$root" -type f -name '*.ino' -print0 2>/dev/null |
+  find "$root" -type f -name 'script.ino' -print0 2>/dev/null |
     while IFS= read -r -d '' file; do dirname "$file"; done | sort -u
-}
-
-_ardu_simple_list_inos() {
-  local root
-  root="${1:-$PWD}"
-  find "$root" -type f -name '*.ino' -print0 2>/dev/null |
-    xargs -0 -I{} realpath -s {}
 }
 
 _ardu_simple_pick_from_list() {
@@ -53,13 +46,6 @@ _ardu_simple_choose_dir() {
   _ardu_simple_pick_from_list "Elige carpeta:" <<<"$dirs"
 }
 
-_ardu_simple_choose_ino() {
-  local files
-  files="$(_ardu_simple_list_inos "$PWD")"
-  [ -z "$files" ] && { echo "❌ No encontré archivos .ino" >&2; return 1; }
-  _ardu_simple_pick_from_list "Elige sketch:" <<<"$files"
-}
-
 _ardu_simple_fqbn_file="$HOME/.arduino-helper-fqbn"
 
 _ardu_simple_auto_fqbn() {
@@ -71,15 +57,23 @@ try:
     data = json.load(sys.stdin)
 except Exception:
     sys.exit(1)
-boards = []
-for port in data.get("ports", []):
-    for board in port.get("boards") or []:
+ports = None
+if isinstance(data, dict) and "ports" in data:
+    ports = data["ports"]
+elif isinstance(data, list):
+    ports = data
+else:
+    ports = []
+fqbns = []
+for port in ports:
+    boards = port.get("matching_boards") or port.get("boards") or []
+    for board in boards:
         fqbn = board.get("fqbn")
         if fqbn:
-            boards.append(fqbn)
-uniq = sorted(set(boards))
-if len(uniq) == 1:
-    print(uniq[0])
+            fqbns.append(fqbn)
+unique = sorted(set(fqbns))
+if len(unique) == 1:
+    print(unique[0])
 PY
 )"
   [ -n "$detected" ] && printf '%s\n' "$detected"
@@ -131,15 +125,33 @@ _ardu_simple_port() {
   _ardu_simple_single_port
 }
 
-compilar() {
-  _ardu_simple_need_cli || return 1
-  local folder fqbn
-  if [ -n "$1" ]; then
-    folder="$1"
-    [ -d "$folder" ] || { echo "❌ No existe la carpeta $folder" >&2; return 1; }
+_ardu_simple_resolve_folder() {
+  local target folder
+  target="$1"
+  if [ -n "$target" ]; then
+    if [ -d "$target" ]; then
+      folder="$target"
+    elif [ -f "$target" ]; then
+      folder="$(dirname "$target")"
+    else
+      echo "❌ No existe $target" >&2
+      return 1
+    fi
   else
     folder="$(_ardu_simple_choose_dir)" || return 1
   fi
+  folder="$(realpath -s "$folder")"
+  if [ ! -f "$folder/script.ino" ]; then
+    echo "❌ Esperaba encontrar script.ino dentro de $folder" >&2
+    return 1
+  fi
+  printf '%s\n' "$folder"
+}
+
+compilar() {
+  _ardu_simple_need_cli || return 1
+  local folder fqbn
+  folder="$(_ardu_simple_resolve_folder "$1")" || return 1
   fqbn="$(_ardu_simple_fqbn)" || return 1
   echo "⚙️ Compilando $folder con $fqbn..."
   arduino-cli compile --fqbn "$fqbn" "$folder"
@@ -147,13 +159,13 @@ compilar() {
 
 upload() {
   _ardu_simple_need_cli || return 1
-  local ino fqbn port dir
-  ino="$(_ardu_simple_choose_ino)" || return 1
+  local folder fqbn port ino
+  folder="$(_ardu_simple_resolve_folder "$1")" || return 1
+  ino="$folder/script.ino"
   fqbn="$(_ardu_simple_fqbn)" || return 1
   port="$(_ardu_simple_port)" || return 1
-  dir="$(dirname "$ino")"
   echo "⬆️ Subiendo $ino a $port..."
-  arduino-cli upload --fqbn "$fqbn" -p "$port" "$dir"
+  arduino-cli upload --fqbn "$fqbn" -p "$port" "$folder"
 }
 
 monitor() {

@@ -8,8 +8,8 @@ Asistente para instalar Arduino CLI, configurar placas comunes y exponer disposi
 - arduino_run: menú minimalista con tres opciones (compilar, upload, monitor) que reutiliza los alias simples descritos abajo; ideal cuando ya tienes la placa conectada y solo quieres esas acciones rápidas.
 
 ### Alias simples
-- compilar: lista las carpetas que contienen archivos `.ino` (buscando desde el directorio actual) y compila la que elijas con el FQBN guardado, el detectado automáticamente (si `arduino-cli board list` encuentra una única placa) o el que definas manualmente. También admite `compilar /ruta/al/proyecto` para saltar la selección.
-- upload: pregunta qué archivo `.ino` quieres subir, detecta la única placa conectada (o la definida en `ARDUINO_PORT`) y ejecuta `arduino-cli upload` sobre ese sketch.
+- compilar: lista las carpetas que contienen `script.ino` (se asume un único sketch por carpeta) y compila la que elijas con el FQBN guardado, el detectado automáticamente (si `arduino-cli board list` encuentra una única placa) o el que definas manualmente. También admite `compilar /ruta/al/proyecto` para saltar la selección.
+- upload: usa la misma carpeta con `script.ino`, detecta la única placa conectada (o `ARDUINO_PORT`) y ejecuta `arduino-cli upload` sobre esa carpeta sin pedirte el sketch explícitamente.
 - monitor: abre `arduino-cli monitor` contra la placa detectada (o `ARDUINO_PORT`) usando 115200 baudios por defecto; puedes pasar otro baudrate como primer argumento.
 
 Las funciones internas del módulo quedaron en los alias simples, por lo que arduino_run actúa como wrapper interactivo cuando prefieres usar un menú en lugar de comandos individuales.
