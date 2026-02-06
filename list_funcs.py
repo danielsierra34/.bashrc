@@ -1,8 +1,8 @@
 import re
 from pathlib import Path
 root = Path("aliases.d")
-for path in sorted(root.glob('*.sh')):
-    text = path.read_text().splitlines()
+for path in sorted(root.rglob('*.sh')):
+    text = path.read_text(encoding="utf-8").splitlines()
     funcs = []
     for line in text:
         m = re.match(r"\s*([A-Za-z0-9_]+)\s*\(\)\s*{", line)

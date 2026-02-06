@@ -3,9 +3,9 @@
 _aliases_dir="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/aliases.d"
 
 if [ -d "$_aliases_dir" ]; then
-  for alias_file in "$_aliases_dir"/*.sh; do
+  while IFS= read -r -d '' alias_file; do
     [ -r "$alias_file" ] && source "$alias_file"
-  done
+  done < <(find "$_aliases_dir" -type f -name '*.sh' -print0 | sort -z)
 fi
 
 unset _aliases_dir alias_file

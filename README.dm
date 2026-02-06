@@ -1,60 +1,44 @@
 # Bashrc Toolkit
 
-Este directorio (`~/bashrc`) agrupa todos tus alias y funciones de shell.
-Para que estén disponibles en todas tus terminales:
+Colección modular de alias y funciones para tu terminal Bash. Cada grupo vive en su propia carpeta dentro de `aliases.d/` e incluye un README con la descripción de comandos disponibles.
 
-```bash
-# ~/.bashrc
-if [ -f ~/bashrc/aliases ]; then
-    source ~/bashrc/aliases
-fi
-```
+## Instalación rápida
+1. **Clona o copia** este directorio en `~/bashrc` (puedes usar cualquier ruta siempre que ajustes los paths).
+2. **Agrega el loader** a `~/.bashrc`:
+   ```bash
+   if [ -f ~/bashrc/aliases ]; then
+       source ~/bashrc/aliases
+   fi
+   ```
+3. **Recarga** la shell con `source ~/.bashrc` o abre una nueva terminal para que todo quede disponible.
 
-1. Edita `~/.bashrc`, pega el bloque anterior y guarda.
-2. Ejecuta `source ~/.bashrc` (o abre una terminal nueva) para cargar el
-   loader.
+> Consejo: Si usas Git para versionar este toolkit, mantén `~/bashrc` como repositorio independiente y haz `git pull` periódicamente.
 
-El archivo `aliases` se encarga de cargar **automáticamente** cada script
-de `aliases.d/*.sh`, por lo que solo necesitas mantener este directorio
-actualizado.
+## Estructura de carpetas
+- `aliases`: script que recorre recursivamente `aliases.d/**/*.sh` y los carga.
+- `aliases.d/000-core/`: utilidades generales (git, Flask, arbolado, llaves SSH, watchers, etc.).
+- `aliases.d/100-python/`: instalación/configuración de pyenv, virtualenvs y limpieza de cachés.
+- `aliases.d/110-uvicorn/`: wrapper para ejecutar Uvicorn indicando host, puerto y workers.
+- `aliases.d/120-fastapi/`: instala FastAPI + Uvicorn dentro del entorno virtual activo.
+- `aliases.d/130-requirements/`: genera o instala archivos `requirements*.txt`.
+- `aliases.d/200-npm/`: helpers para npm/npx (listar, instalar o desinstalar paquetes).
+- `aliases.d/210-git/`: comandos rápidos para definir `user.name` y `user.email`.
+- `aliases.d/300-docker/`: gestión de redes, contenedores, imágenes y limpiezas de Docker.
+- `aliases.d/400-ghost/`: scripts específicos para Ghost + pipelines de pruebas end-to-end.
+- `aliases.d/410-kraken/`: instalación y ejecución de `kraken-node` y Chromedriver.
+- `aliases.d/500-cypress/`: instalación y ejecución de suites Cypress (headed/headless).
+- `aliases.d/600-ollama/`: instalación de Ollama, descarga guiada de modelos y creación de Modelfiles personalizados.
+- `aliases.d/700-arduino/`: asistente para Arduino CLI y conexión de placas USB desde WSL.
+- `aliases.d/900-misc/`: alias misceláneos (venv, Bitnami, recarga de bashrc).
+- `list_funcs.py`: script que imprime el inventario de funciones/alias detectados en cada módulo.
 
-## Cómo ejecutar los scripts
+Cada carpeta tiene un `README.md` con más detalles del módulo correspondiente. Lee esos archivos para conocer argumentos, requisitos extra o advertencias.
 
-- Cada función se invoca escribiendo su nombre como si fuera un comando:
-  `fastpush "mensaje"`, `docker_c_run imagen` o `arduino_install`.
-- Las entradas declaradas con `alias` se ejecutan igual que cualquier
-  comando clásico: `venv_activar`, `bashrc`, etc.
-- Si el script espera argumentos, revísalos en la tabla de referencia
-  siguiente o abre el archivo correspondiente en `aliases.d`.
+## Cómo usar los alias y funciones
+- **Funciones**: se llaman como cualquier comando (`fastpush "mensaje"`, `docker_c_run 80 8080 imagen contenedor`).
+- **Alias**: basta escribir su nombre (`venv_activar`, `iadnode_connect`, `bashrc`).
+- **Recarga manual**: cuando edites algún archivo en `aliases.d`, ejecuta `source ~/bashrc/aliases` para cargar los cambios sin cerrar tu sesión.
 
-## Referencia de scripts (`aliases.d`)
-
-| Archivo | Contexto principal | Funciones / aliases destacados |
-| --- | --- | --- |
-| `000-core.sh` | Utilidades base | `fastpush`, `watchdog`, `ssh_generar`, `tree_list`, alias `iadnode_connect` |
-| `100-python.sh` | Gestión de Python/pyenv | `pyenv_install`, `pyenv_local`, `pyenv_venv`, `pycache_delete` |
-| `110-uvicorn.sh` | Servidor ASGI | `uvicorn_run host puerto modulo` |
-| `120-fastapi.sh` | Dependencias FastAPI | `fastapi_install` (usa pip/poetry según el proyecto) |
-| `130-requirements.sh` | Requirements files | `requirements_install`, `requirements_generate` |
-| `200-npm.sh` | Node/NPM/NPX | `npm_install paquete`, `npx_install herramienta`, listados y uninstall |
-| `210-git.sh` | Configuración Git | `git_email correo`, `git_name nombre` |
-| `300-docker.sh` | Docker & Compose | `docker_c_run`, `docker_c_enter`, `docker_i_build`, `docker_networks_create`, `docker_clean`, etc. |
-| `400-ghost.sh` | Stack Ghost | `ghost_terminal`, `ghost_run`, `cypress_run`, `kraken_run`, helpers de configuración |
-| `410-kraken.sh` | Proyecto Kraken | `kraken_install`, `kraken_run`, `kraken_reports_clear`, `chromium_listen` |
-| `500-cypress.sh` | Automatización Cypress | `cypress_install`, `cypress_run_headed`, `cypress_run_headless`, utilidades `agregar_x`/`quitar_x` |
-| `600-ollama.sh` | Ollama/LLM tooling | `ollama_install`, `ollama_pull`, `ollama_modelfile_generate`, además de menús interactivos para exponer el servidor y gestionar Modelfiles |
-| `700-arduino.sh` | Arduino + WSL | `arduino_install`, `ardu`, `arduino_run` (incluye asistente para USB/IP) |
-| `900-misc.sh` | Alias varios | `venv_iniciar`, `venv_activar`, `bitnami_reiniciar`, `bashrc`, etc. |
-
-### Consejos rápidos
-
-- **Buscar ayuda puntual:** abre el archivo correspondiente en tu editor
-  (`aliases.d/300-docker.sh`) para ver comentarios y más ejemplos.
-- **Actualizar scripts:** cualquier nuevo módulo puede guardarse como
-  `NNN-nombre.sh`. El loader los importará automáticamente si tienen
-  permisos de lectura.
-- **Depurar:** ejecuta `source ~/bashrc/aliases` para recargar después de
-  cada cambio.
-
-Con este README tienes tanto el instructivo de enlace en `.bashrc` como
-la guía para ejecutar cada script agrupado por contexto.
+## Scripts auxiliares
+- `python list_funcs.py`: lista funciones y alias detectados por archivo. Útil para hacer auditorías rápidas.
+- Cualquier módulo nuevo puede copiar la estructura actual (directorio + README + script `.sh`). Basta con guardarlo como `NNN-nombre/nombre.sh`; el loader lo encontrará automáticamente.
