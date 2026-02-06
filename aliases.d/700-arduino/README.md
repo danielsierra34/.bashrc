@@ -8,8 +8,8 @@ Asistente para instalar Arduino CLI, configurar placas comunes y exponer disposi
 - arduino_run: menú minimalista con tres opciones (compilar, upload, monitor) que reutiliza los alias simples descritos abajo; ideal cuando ya tienes la placa conectada y solo quieres esas acciones rápidas.
 
 ### Alias simples
-- compilar: lista las carpetas que contienen `script.ino` (se asume un único sketch por carpeta) y compila la que elijas con el FQBN guardado, el detectado automáticamente (si `arduino-cli board list` encuentra una única placa) o el que definas manualmente. También admite `compilar /ruta/al/proyecto` para saltar la selección.
-- upload: usa la misma carpeta con `script.ino`, detecta la única placa conectada (o `ARDUINO_PORT`) y ejecuta `arduino-cli upload` sobre esa carpeta sin pedirte el sketch explícitamente.
+- compilar: lista las carpetas que contienen un `.ino` cuyo nombre coincide con la carpeta (por ejemplo `proyecto/proyecto.ino`). Compila la que elijas con el FQBN guardado, el detectado automáticamente (si `arduino-cli board list` encuentra una única placa) o el que definas manualmente. También admite `compilar /ruta/al/proyecto` para saltar la selección.
+- upload: usa la misma carpeta (nombre de archivo = nombre de carpeta), detecta la única placa conectada (o `ARDUINO_PORT`) y ejecuta `arduino-cli upload` sin pedirte el sketch explícitamente.
 
 Ambos comandos (y `arduino_run`) intentan automáticamente:
 1. Adjuntar la placa a WSL usando `usbipd attach --wsl --busid …` a través de `powershell.exe`. Si tienes un BUSID específico puedes forzarlo con `export ARDUINO_USB_BUSID=2-6`.

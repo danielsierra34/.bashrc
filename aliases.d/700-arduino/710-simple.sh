@@ -196,60 +196,35 @@ _ardu_simple_resolve_folder() {
     folder="$(_ardu_simple_choose_dir)" || return 1
   fi
   folder="$(realpath -s "$folder")"
-  printf '%s\n' "$folder"
-}
-
-_ardu_simple_prepare_sketch() {
-  local folder="$1"
-  local basename script canonical
+  local basename sketch
   basename="$(basename "$folder")"
-  script="$folder/script.ino"
-  canonical="$folder/$basename.ino"
-
-  if [ -e "$canonical" ]; then
-    printf '%s\n' ""
-    return 0
+  sketch="$folder/$basename.ino"
+  if [ ! -f "$sketch" ]; then
+    echo "❌ Esperaba encontrar $basename.ino dentro de $folder" >&2
+    echo "👉 Asegúrate de que el archivo .ino tenga el mismo nombre que la carpeta." >&2
+    return 1
   fi
-
-  if [ -f "$script" ]; then
-    (cd "$folder" && ln -s script.ino "$basename.ino") || {
-      echo "❌ No pude crear el enlace simbólico $basename.ino -> script.ino en $folder" >&2
-      return 1
-    }
-    printf '%s\n' "$canonical"
-    return 0
-  fi
-
-  echo "❌ No encontré script.ino ni $basename.ino en $folder" >&2
-  echo "👉 Asegúrate de tener un único sketch nombrado script.ino en cada carpeta." >&2
-  return 1
+  printf '%s\n' "$folder"
 }
 
 compilar() {
   _ardu_simple_need_cli || return 1
-  local folder fqbn cleanup=""
+  local folder fqbn
   folder="$(_ardu_simple_resolve_folder "$1")" || return 1
-  cleanup="$(_ardu_simple_prepare_sketch "$folder")" || return 1
-  fqbn="$(_ardu_simple_fqbn)" || { [ -n "$cleanup" ] && rm -f "$cleanup"; return 1; }
+  fqbn="$(_ardu_simple_fqbn)" || return 1
   echo "⚙️ Compilando $folder con $fqbn..."
   arduino-cli compile --fqbn "$fqbn" "$folder"
-  local status=$?
-  [ -n "$cleanup" ] && rm -f "$cleanup"
-  return $status
 }
 
 upload() {
   _ardu_simple_need_cli || return 1
-  local folder fqbn port cleanup=""
+  local folder fqbn port ino
   folder="$(_ardu_simple_resolve_folder "$1")" || return 1
-  cleanup="$(_ardu_simple_prepare_sketch "$folder")" || return 1
-  fqbn="$(_ardu_simple_fqbn)" || { [ -n "$cleanup" ] && rm -f "$cleanup"; return 1; }
-  port="$(_ardu_simple_port)" || { [ -n "$cleanup" ] && rm -f "$cleanup"; return 1; }
-  echo "⬆️ Subiendo sketch de $folder a $port..."
+  fqbn="$(_ardu_simple_fqbn)" || return 1
+  port="$(_ardu_simple_port)" || return 1
+  ino="$folder/$(basename "$folder").ino"
+  echo "⬆️ Subiendo $ino a $port..."
   arduino-cli upload --fqbn "$fqbn" -p "$port" "$folder"
-  local status=$?
-  [ -n "$cleanup" ] && rm -f "$cleanup"
-  return $status
 }
 
 monitor() {
