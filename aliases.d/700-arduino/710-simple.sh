@@ -7,10 +7,25 @@ _ardu_simple_need_cli() {
 }
 
 _ardu_simple_list_dirs() {
-  local root
-  root="${1:-$PWD}"
-  find "$root" -type f -name 'script.ino' -print0 2>/dev/null |
-    while IFS= read -r -d '' file; do dirname "$file"; done | sort -u
+  local root="${1:-$PWD}"
+  command -v python3 >/dev/null 2>&1 || {
+    echo "❌ python3 es necesario para listar proyectos Arduino." >&2
+    return 1
+  }
+  python3 - <<'PY' "$root"
+import os, sys
+root = sys.argv[1]
+seen = set()
+for dirpath, _, files in os.walk(root):
+    base = os.path.basename(dirpath.rstrip(os.sep))
+    if not base:
+        continue
+    sketch = f"{base}.ino"
+    if sketch in files:
+        seen.add(os.path.realpath(dirpath))
+for path in sorted(seen):
+    print(path)
+PY
 }
 
 _ardu_simple_pick_from_list() {
@@ -42,7 +57,7 @@ _ardu_simple_pick_from_list() {
 _ardu_simple_choose_dir() {
   local dirs
   dirs="$(_ardu_simple_list_dirs "$PWD")"
-  [ -z "$dirs" ] && { echo "❌ No encontré carpetas con .ino" >&2; return 1; }
+  [ -z "$dirs" ] && { echo "❌ No encontré carpetas cuyo .ino coincida con el nombre de la carpeta." >&2; return 1; }
   _ardu_simple_pick_from_list "Elige carpeta:" <<<"$dirs"
 }
 
