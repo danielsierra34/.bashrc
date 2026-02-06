@@ -72,22 +72,31 @@ _ardu_simple_choose_dir() {
 
 _ardu_help_choose_project() {
   local root="${1:-$PWD}"
-  local dirs
+  local dirs tty_device
   dirs="$(_ardu_simple_list_dirs "$root")"
   [ -z "$dirs" ] && { echo "❌ No encontré proyectos .ino dentro de $root" >&2; return 1; }
-  echo "Proyectos disponibles en $root:"
+
+  tty_device="/dev/tty"
+  if [ ! -e "$tty_device" ]; then
+    tty_device="/dev/stderr"
+  fi
+
   mapfile -t _ardu_help_projects <<<"$dirs"
   local total="${#_ardu_help_projects[@]}"
+
   if [ "$total" -eq 1 ]; then
     printf '%s\n' "${_ardu_help_projects[0]}"
     return 0
   fi
+
+  printf "Proyectos disponibles en %s:\n" "$root" >"$tty_device"
   local idx rel choice
   for idx in "${!_ardu_help_projects[@]}"; do
     rel="${_ardu_help_projects[idx]#"$root"/}"
     [ -z "$rel" ] && rel="${_ardu_help_projects[idx]}"
-    printf '%2d) %s\n' $((idx+1)) "$rel"
+    printf '%2d) %s\n' $((idx+1)) "$rel" >"$tty_device"
   done
+
   while true; do
     if [ -t 0 ]; then
       read -rp "Elige proyecto: " choice
@@ -101,7 +110,7 @@ _ardu_help_choose_project() {
       printf '%s\n' "${_ardu_help_projects[choice-1]}"
       return 0
     fi
-    echo "⚠️  Selección inválida. Usa un número entre 1 y $total."
+    echo "⚠️  Selección inválida. Usa un número entre 1 y $total." >"$tty_device"
   done
 }
 
