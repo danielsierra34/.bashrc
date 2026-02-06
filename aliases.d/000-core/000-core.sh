@@ -65,10 +65,30 @@ flask_restart(){
 }
 
 bashrc_refresh(){
-    cd ~/bashrc
-    git pull
-    . ~/.bashrc    
-    cd -
+    local mode="$1"
+
+    if [ -z "$mode" ]; then
+        echo "❌ Uso: bashrc_refresh <remote|local>"
+        return 1
+    fi
+
+    case "$mode" in
+        remote)
+            local prev_dir
+            prev_dir="$(pwd)"
+            cd ~/bashrc || { echo "❌ No pude entrar a ~/bashrc"; return 1; }
+            git pull || { cd "$prev_dir"; return 1; }
+            . ~/.bashrc
+            cd "$prev_dir" || return 1
+            ;;
+        local)
+            . ~/.bashrc
+            ;;
+        *)
+            echo "❌ Modo inválido. Usa 'remote' o 'local'."
+            return 1
+            ;;
+    esac
 }
 
 test_all(){

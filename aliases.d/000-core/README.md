@@ -9,7 +9,7 @@ Utilidades esenciales para depurar proyectos locales, automatizar tareas de Git 
 - ssh_zip carpeta: comprime directorios antes de transferirlos.
 - python_serve: levanta un servidor HTTP simple en el puerto 8000.
 - flask_run / flask_restart: ejecutan y reinician apps Flask limpiando bases locales.
-- bashrc_refresh: actualiza este repositorio y recarga ~/.bashrc.
+- bashrc_refresh: `bashrc_refresh remote` hace git pull + recarga, `bashrc_refresh local` solo vuelve a ejecutar `~/.bashrc`.
 - test_all: dispara python -m unittest discover en el proyecto activo.
 - watchdog / watchdog_always: usan watchmedo para correr pruebas al detectar cambios.
 - port_check puerto y port_kill pid: inspeccionan puertos ocupados y cierran procesos.

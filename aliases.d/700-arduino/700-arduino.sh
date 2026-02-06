@@ -147,179 +147,64 @@ ardu() {
 }
 
 arduino_run() {
-  set +e
-
-  # ========= Utilidades =========
-  _ok()   { echo "✅ $*"; }
-  _warn() { echo "⚠️  $*"; }
-  _die()  { echo "❌ $*" >&2; return 1; }
-
-  _is_wsl() { grep -qi microsoft /proc/version 2>/dev/null; }
-
-  _need() {
-    command -v arduino-cli >/dev/null || _die "No existe arduino-cli en WSL"
-    command -v powershell.exe >/dev/null || _die "No existe powershell.exe"
-    _is_wsl || _die "Esta función solo funciona en WSL"
+  command -v compilar >/dev/null 2>&1 || {
+    echo "❌ Falta la función compilar (revisa 700-arduino/710-simple.sh)." >&2
+    return 1
   }
-
-  # ========= PowerShell → usbipd =========
-  _usbipd() {
-    powershell.exe -NoProfile -ExecutionPolicy Bypass \
-      -Command "& 'C:\Program Files\usbipd-win\usbipd.exe' $*" 2>&1 | tr -d '\r'
+  command -v upload >/dev/null 2>&1 || {
+    echo "❌ Falta la función upload (revisa 700-arduino/710-simple.sh)." >&2
+    return 1
   }
-
-  _usb_list() { _usbipd list; }
-
-  _serial_busids() {
-    _usb_list | awk '
-      /^[0-9]+-[0-9]+/ &&
-      /(CP210|CH340|USB-SERIAL|FTDI|UART|Serial)/ {print $1}'
-  }
-
-  _auto_busid() {
-    local b; b="$(_serial_busids)"
-    [ "$(echo "$b" | wc -l)" -eq 1 ] && echo "$b"
-  }
-
-  _choose_busid() {
-    local b n
-    b="$(_serial_busids)"
-    [ -z "$b" ] && _die "No se detectó USB-Serial. Posible driver faltante en Windows."
-    nl -w2 -s") " <<<"$b"
-    read -rp "Elige BUSID: " n
-    echo "$b" | sed -n "${n}p"
-  }
-
-  _attach() {
-    _usbipd attach --wsl --busid "$1" >/dev/null 2>&1 && return 0
-    _warn "No se pudo hacer attach automático"
-    echo
-    echo "👉 Ejecuta en PowerShell ADMIN (una sola vez):"
-    echo "usbipd bind --busid $1 --force"
-    echo "usbipd attach --wsl --busid $1"
+  command -v monitor >/dev/null 2>&1 || {
+    echo "❌ Falta la función monitor (revisa 700-arduino/710-simple.sh)." >&2
     return 1
   }
 
-  # ========= Puertos WSL =========
-  _ports() { ls /dev/ttyUSB* /dev/ttyACM* 2>/dev/null; }
-
-  _auto_port() {
-    local p; p="$(_ports)"
-    [ "$(echo "$p" | wc -l)" -eq 1 ] && echo "$p"
-  }
-
-  _choose_port() {
-    local p n
-    p="$(_ports)"
-    [ -z "$p" ] && _die "No hay puertos seriales en WSL"
-    nl -w2 -s") " <<<"$p"
-    read -rp "Elige puerto: " n
-    echo "$p" | sed -n "${n}p"
-  }
-
-  # ========= Placas =========
-  _choose_board() {
-    echo "1) ESP8266 (NodeMCU / OLED)"
-    echo "2) ESP32 (ESP32U / Dev Module)"
-    read -rp "Placa: " n
-    case "$n" in
-      1) echo "esp8266:esp8266:nodemcuv2" ;;
-      2) echo "esp32:esp32:esp32" ;;
-      *) _die "Opción inválida" ;;
-    esac
-  }
-
-  # ========= Cores =========
-  _core_from_fqbn() { echo "$1" | awk -F: '{print $1 ":" $2}'; }
-
-  _ensure_core() {
-    arduino-cli core list | awk 'NR>1{print $1}' | grep -qx "$1" && return 0
-    echo "➡️  Instalando core $1 (solo la primera vez)"
-    arduino-cli core update-index || return 1
-    arduino-cli core install "$1" || return 1
-  }
-
-  # ========= Sketch =========
-  _pick_sketch() {
-    read -rp "Ruta del sketch (carpeta o .ino): " p
-    p="${p/#\~/$HOME}"
-    [ -e "$p" ] || _die "No existe $p"
-    echo "$p"
-  }
-
-  _compile() {
-    [ -f "$2" ] && arduino-cli compile --fqbn "$1" --input-file "$2" ||
-                   arduino-cli compile --fqbn "$1" "$2"
-  }
-
-  _upload() {
-    [ -f "$3" ] && arduino-cli upload -p "$2" --fqbn "$1" --input-file "$3" ||
-                   arduino-cli upload -p "$2" --fqbn "$1" "$3"
-  }
-
-  _monitor() {
-    read -rp "Baudrate (default 115200): " b
-    b="${b:-115200}"
-    arduino-cli monitor -p "$1" -c baudrate="$b"
-  }
-
-  # ========= MENÚ =========
-  _need || return
-
   while true; do
     echo
-    echo "========= Arduino WSL Assistant ========="
-    echo "1) Listar USB (Windows)"
-    echo "2) Attach USB a WSL"
-    echo "3) Compilar"
-    echo "4) Upload"
-    echo "5) Monitor"
-    echo "6) Flujo completo"
+    echo "========= Arduino Assistant ========="
+    echo "1) Compilar sketch (.ino)"
+    echo "2) Upload a la única placa conectada"
+    echo "3) Monitor serie"
     echo "0) Salir"
     read -rp "Opción: " o
 
     case "$o" in
-      1) _usb_list ;;
-      2)
-        b="$(_auto_busid)"; [ -z "$b" ] && b="$(_choose_busid)"
-        _attach "$b"
+      1)
+        dirs="$(_ardu_simple_list_dirs "$PWD")"
+        if [ -z "$dirs" ]; then
+          echo "❌ No encontré carpetas con .ino desde $(pwd)"
+          continue
+        fi
+        mapfile -t dir_array <<<"$dirs"
+        if [ "${#dir_array[@]}" -eq 1 ]; then
+          choice="${dir_array[0]}"
+        else
+          echo "Carpetas encontradas:"
+          for idx in "${!dir_array[@]}"; do
+            printf '%2d) %s\n' $((idx+1)) "${dir_array[idx]}"
+          done
+          read -rp "Elige carpeta: " sel
+          if [[ "$sel" =~ ^[0-9]+$ ]] && [ "$sel" -ge 1 ] && [ "$sel" -le "${#dir_array[@]}" ]; then
+            choice="${dir_array[sel-1]}"
+          else
+            echo "⚠️  Selección inválida"
+            continue
+          fi
+        fi
+        compilar "$choice"
         ;;
+      2) upload ;;
       3)
-        fqbn="$(_choose_board)"
-        _ensure_core "$(_core_from_fqbn "$fqbn")" || continue
-        s="$(_pick_sketch)"
-        _compile "$fqbn" "$s"
-        ;;
-      4)
-        fqbn="$(_choose_board)"
-        _ensure_core "$(_core_from_fqbn "$fqbn")" || continue
-        p="$(_auto_port)"; [ -z "$p" ] && p="$(_choose_port)"
-        s="$(_pick_sketch)"
-        _upload "$fqbn" "$p" "$s"
-        ;;
-      5)
-        p="$(_auto_port)"; [ -z "$p" ] && p="$(_choose_port)"
-        _monitor "$p"
-        ;;
-      6)
-        b="$(_auto_busid)"; [ -z "$b" ] && b="$(_choose_busid)"
-        _attach "$b" || continue
-        p="$(_auto_port)"; [ -z "$p" ] && p="$(_choose_port)"
-        fqbn="$(_choose_board)"
-        _ensure_core "$(_core_from_fqbn "$fqbn")" || continue
-        s="$(_pick_sketch)"
-        _compile "$fqbn" "$s" &&
-        _upload "$fqbn" "$p" "$s" &&
-        _monitor "$p"
+        read -rp "Baudrate [115200]: " b
+        b="${b:-115200}"
+        monitor "$b"
         ;;
       0) return ;;
-      *) _warn "Opción inválida" ;;
+      *) echo "⚠️  Opción inválida" ;;
     esac
   done
 }
-
-
-
 
 
 
