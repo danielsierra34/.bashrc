@@ -45,7 +45,16 @@ _ardu_simple_pick_from_list() {
     printf '%2d) %s\n' $((i+1)) "${items[i]}"
   done
   local selection
-  read -rp "$prompt " selection
+  if [ -t 0 ]; then
+    read -rp "$prompt " selection
+  else
+    if [ -e /dev/tty ]; then
+      read -rp "$prompt " selection < /dev/tty
+    else
+      echo "❌ No hay TTY disponible para leer la selección." >&2
+      return 1
+    fi
+  fi
   if [[ "$selection" =~ ^[0-9]+$ ]] && [ "$selection" -ge 1 ] && [ "$selection" -le "$total" ]; then
     printf '%s\n' "${items[selection-1]}"
     return 0
