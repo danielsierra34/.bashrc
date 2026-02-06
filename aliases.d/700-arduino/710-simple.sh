@@ -48,6 +48,14 @@ _ardu_simple_choose_dir() {
 
 _ardu_simple_fqbn_file="$HOME/.arduino-helper-fqbn"
 
+_ardu_simple_valid_fqbn() {
+  local value="$1"
+  case "$value" in
+    *:*:*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 _ardu_simple_auto_fqbn() {
   command -v python3 >/dev/null || return 1
   local detected
@@ -81,25 +89,41 @@ PY
 
 _ardu_simple_fqbn() {
   if [ -n "$ARDUINO_FQBN" ]; then
-    printf '%s\n' "$ARDUINO_FQBN"
-    return 0
+    if _ardu_simple_valid_fqbn "$ARDUINO_FQBN"; then
+      printf '%s\n' "$ARDUINO_FQBN"
+      return 0
+    else
+      echo "⚠️  ARDUINO_FQBN='$ARDUINO_FQBN' no parece un FQBN válido (ej. vendor:arch:board)." >&2
+    fi
   fi
   if [ -f "$_ardu_simple_fqbn_file" ]; then
     read -r saved < "$_ardu_simple_fqbn_file"
     if [ -n "$saved" ]; then
-      printf '%s\n' "$saved"
-      return 0
+      if _ardu_simple_valid_fqbn "$saved"; then
+        printf '%s\n' "$saved"
+        return 0
+      else
+        echo "⚠️  Ignorando FQBN guardado inválido: $saved" >&2
+        rm -f "$_ardu_simple_fqbn_file"
+      fi
     fi
   fi
   local auto
   auto="$(_ardu_simple_auto_fqbn)"
   if [ -n "$auto" ]; then
-    printf '%s\n' "$auto" > "$_ardu_simple_fqbn_file"
-    printf '%s\n' "$auto"
-    return 0
+    if ! _ardu_simple_valid_fqbn "$auto"; then
+      echo "⚠️  La detección automática devolvió '$auto', que no es un FQBN completo. Intentaré preguntar manualmente." >&2
+    else
+      printf '%s\n' "$auto" > "$_ardu_simple_fqbn_file"
+      printf '%s\n' "$auto"
+      return 0
+    fi
   fi
   read -rp "FQBN (ej. esp8266:esp8266:nodemcuv2): " fqbn
-  [ -z "$fqbn" ] && { echo "❌ Necesito un FQBN" >&2; return 1; }
+  if ! _ardu_simple_valid_fqbn "$fqbn"; then
+    echo "❌ '$fqbn' no es un FQBN válido. Debe tener el formato vendor:arch:board." >&2
+    return 1
+  fi
   printf '%s\n' "$fqbn" > "$_ardu_simple_fqbn_file"
   printf '%s\n' "$fqbn"
 }
@@ -141,31 +165,60 @@ _ardu_simple_resolve_folder() {
     folder="$(_ardu_simple_choose_dir)" || return 1
   fi
   folder="$(realpath -s "$folder")"
-  if [ ! -f "$folder/script.ino" ]; then
-    echo "❌ Esperaba encontrar script.ino dentro de $folder" >&2
-    return 1
-  fi
   printf '%s\n' "$folder"
+}
+
+_ardu_simple_prepare_sketch() {
+  local folder="$1"
+  local basename script canonical
+  basename="$(basename "$folder")"
+  script="$folder/script.ino"
+  canonical="$folder/$basename.ino"
+
+  if [ -e "$canonical" ]; then
+    printf '%s\n' ""
+    return 0
+  fi
+
+  if [ -f "$script" ]; then
+    (cd "$folder" && ln -s script.ino "$basename.ino") || {
+      echo "❌ No pude crear el enlace simbólico $basename.ino -> script.ino en $folder" >&2
+      return 1
+    }
+    printf '%s\n' "$canonical"
+    return 0
+  fi
+
+  echo "❌ No encontré script.ino ni $basename.ino en $folder" >&2
+  echo "👉 Asegúrate de tener un único sketch nombrado script.ino en cada carpeta." >&2
+  return 1
 }
 
 compilar() {
   _ardu_simple_need_cli || return 1
-  local folder fqbn
+  local folder fqbn cleanup=""
   folder="$(_ardu_simple_resolve_folder "$1")" || return 1
-  fqbn="$(_ardu_simple_fqbn)" || return 1
+  cleanup="$(_ardu_simple_prepare_sketch "$folder")" || return 1
+  fqbn="$(_ardu_simple_fqbn)" || { [ -n "$cleanup" ] && rm -f "$cleanup"; return 1; }
   echo "⚙️ Compilando $folder con $fqbn..."
   arduino-cli compile --fqbn "$fqbn" "$folder"
+  local status=$?
+  [ -n "$cleanup" ] && rm -f "$cleanup"
+  return $status
 }
 
 upload() {
   _ardu_simple_need_cli || return 1
-  local folder fqbn port ino
+  local folder fqbn port cleanup=""
   folder="$(_ardu_simple_resolve_folder "$1")" || return 1
-  ino="$folder/script.ino"
-  fqbn="$(_ardu_simple_fqbn)" || return 1
-  port="$(_ardu_simple_port)" || return 1
-  echo "⬆️ Subiendo $ino a $port..."
+  cleanup="$(_ardu_simple_prepare_sketch "$folder")" || return 1
+  fqbn="$(_ardu_simple_fqbn)" || { [ -n "$cleanup" ] && rm -f "$cleanup"; return 1; }
+  port="$(_ardu_simple_port)" || { [ -n "$cleanup" ] && rm -f "$cleanup"; return 1; }
+  echo "⬆️ Subiendo sketch de $folder a $port..."
   arduino-cli upload --fqbn "$fqbn" -p "$port" "$folder"
+  local status=$?
+  [ -n "$cleanup" ] && rm -f "$cleanup"
+  return $status
 }
 
 monitor() {
