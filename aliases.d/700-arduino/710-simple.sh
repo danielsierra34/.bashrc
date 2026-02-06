@@ -76,7 +76,33 @@ _ardu_help_choose_project() {
   dirs="$(_ardu_simple_list_dirs "$root")"
   [ -z "$dirs" ] && { echo "❌ No encontré proyectos .ino dentro de $root" >&2; return 1; }
   echo "Proyectos disponibles en $root:"
-  _ardu_simple_pick_from_list "Elige proyecto:" <<<"$dirs"
+  mapfile -t _ardu_help_projects <<<"$dirs"
+  local total="${#_ardu_help_projects[@]}"
+  if [ "$total" -eq 1 ]; then
+    printf '%s\n' "${_ardu_help_projects[0]}"
+    return 0
+  fi
+  local idx rel choice
+  for idx in "${!_ardu_help_projects[@]}"; do
+    rel="${_ardu_help_projects[idx]#"$root"/}"
+    [ -z "$rel" ] && rel="${_ardu_help_projects[idx]}"
+    printf '%2d) %s\n' $((idx+1)) "$rel"
+  done
+  while true; do
+    if [ -t 0 ]; then
+      read -rp "Elige proyecto: " choice
+    elif [ -e /dev/tty ]; then
+      read -rp "Elige proyecto: " choice < /dev/tty
+    else
+      echo "❌ No hay TTY para leer la selección." >&2
+      return 1
+    fi
+    if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le "$total" ]; then
+      printf '%s\n' "${_ardu_help_projects[choice-1]}"
+      return 0
+    fi
+    echo "⚠️  Selección inválida. Usa un número entre 1 y $total."
+  done
 }
 
 _ardu_simple_fqbn_file="$HOME/.arduino-helper-fqbn"
