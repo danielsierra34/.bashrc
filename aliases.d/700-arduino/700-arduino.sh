@@ -248,7 +248,7 @@ arduino_help() {
     echo "❌ No existe la carpeta de proyectos: $ino_root" >&2
     echo "👉  Crea la estructura 'ino/<proyecto>/<proyecto>.ino' o exporta ARDUINO_INO_ROOT." >&2
     return 1
-  }
+  fi
 
   local busid
   busid="$(_ardu_simple_busid)" || return 1
