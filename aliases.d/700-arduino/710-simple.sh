@@ -85,6 +85,88 @@ _ardu_simple_valid_busid() {
   [[ "$1" =~ ^[0-9]+-[0-9]+$ ]]
 }
 
+_ardu_simple_usbipd_exe() {
+  local candidate
+  if [ -n "${USBIPD_EXE:-}" ]; then
+    candidate="$USBIPD_EXE"
+    if [[ "$candidate" =~ ^[A-Za-z]:\\ ]]; then
+      if command -v wslpath >/dev/null 2>&1; then
+        local converted
+        converted="$(wslpath "$candidate" 2>/dev/null)" && candidate="$converted"
+      fi
+    fi
+    if [ -f "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+  for candidate in "/mnt/c/Program Files/usbipd-win/usbipd.exe" "/mnt/c/Program Files (x86)/usbipd-win/usbipd.exe"; do
+    if [ -f "$candidate" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  if command -v usbipd >/dev/null 2>&1; then
+    command -v usbipd
+    return 0
+  fi
+  return 1
+}
+
+_ardu_simple_usbipd_list() {
+  local exe
+  if exe="$(_ardu_simple_usbipd_exe)"; then
+    "$exe" list
+    return $?
+  fi
+  command -v powershell.exe >/dev/null 2>&1 || return 1
+  local ps_script
+  ps_script=$(cat <<'PWS'
+$exe = $Env:USBIPD_EXE
+if (-not $exe) {
+  if (Get-Command usbipd -ErrorAction SilentlyContinue) {
+    $exe = 'usbipd'
+  } elseif (Test-Path 'C:\Program Files\usbipd-win\usbipd.exe') {
+    $exe = 'C:\Program Files\usbipd-win\usbipd.exe'
+  } elseif (Test-Path 'C:\Program Files (x86)\usbipd-win\usbipd.exe') {
+    $exe = 'C:\Program Files (x86)\usbipd-win\usbipd.exe'
+  }
+}
+if ($exe) {
+  & $exe list
+}
+PWS
+)
+  powershell.exe -NoProfile -Command "$ps_script"
+}
+
+_ardu_simple_usbipd_attach() {
+  local exe
+  if exe="$(_ardu_simple_usbipd_exe)"; then
+    "$exe" attach --wsl --busid "$1"
+    return $?
+  fi
+  command -v powershell.exe >/dev/null 2>&1 || return 1
+  local ps_script
+  ps_script=$(cat <<PWS
+\$exe = \$Env:USBIPD_EXE
+if (-not \$exe) {
+  if (Get-Command usbipd -ErrorAction SilentlyContinue) {
+    \$exe = 'usbipd'
+  } elseif (Test-Path 'C:\\Program Files\\usbipd-win\\usbipd.exe') {
+    \$exe = 'C:\\Program Files\\usbipd-win\\usbipd.exe'
+  } elseif (Test-Path 'C:\\Program Files (x86)\\usbipd-win\\usbipd.exe') {
+    \$exe = 'C:\\Program Files (x86)\\usbipd-win\\usbipd.exe'
+  }
+}
+if (\$exe) {
+  & \$exe attach --wsl --busid $1
+}
+PWS
+)
+  powershell.exe -NoProfile -Command "$ps_script"
+}
+
 _ardu_simple_auto_fqbn() {
   command -v python3 >/dev/null || return 1
   _ardu_simple_ensure_usb_attached >/dev/null 2>&1 || true
@@ -180,17 +262,6 @@ _ardu_simple_port() {
   _ardu_simple_single_port
 }
 
-_ardu_simple_usb_busid_hint() {
-  command -v powershell.exe >/dev/null 2>&1 || return 1
-  powershell.exe -NoProfile -Command "usbipd list" 2>/dev/null | tr -d '\r' |
-    awk '
-      BEGIN {IGNORECASE=1}
-      /^BUSID/ {next}
-      NF < 3 {next}
-      /USB-SERIAL|CP210|CH340|Arduino/ {print $1; exit}
-    '
-}
-
 _ardu_simple_busid() {
   local busid
   if [ -n "$ARDUINO_USB_BUSID" ]; then
@@ -208,23 +279,24 @@ _ardu_simple_busid() {
       return 0
     fi
   fi
-  busid="$(_ardu_simple_usb_busid_hint)"
-  if _ardu_simple_valid_busid "$busid"; then
-    printf '%s\n' "$busid" > "$_ardu_simple_busid_file"
-    echo "$busid"
-    return 0
-  fi
-  command -v powershell.exe >/dev/null 2>&1 || {
-    echo "❌ No pude deducir el BUSID automáticamente y no hay powershell.exe." >&2
-    return 1
-  }
-  echo "⚠️  No pude deducir el BUSID automáticamente. Salida de 'usbipd list':" >&2
   local usbipd_output
-  usbipd_output="$(powershell.exe -NoProfile -Command "usbipd list" 2>/dev/null | tr -d '\r')"
+  usbipd_output="$(_ardu_simple_usbipd_list 2>/dev/null | tr -d '\r')"
   if [ -n "$usbipd_output" ]; then
-    echo "$usbipd_output"
+    busid="$(printf '%s\n' "$usbipd_output" | awk '
+      BEGIN {IGNORECASE=1}
+      /^BUSID/ {next}
+      NF < 3 {next}
+      /USB-SERIAL|CP210|CH340|Arduino/ {print $1; exit}
+    ')"
+    if _ardu_simple_valid_busid "$busid"; then
+      printf '%s\n' "$busid" > "$_ardu_simple_busid_file"
+      echo "$busid"
+      return 0
+    fi
+    echo "⚠️  No pude deducir el BUSID a partir de 'usbipd list'. Salida:" >&2
+    printf '%s\n' "$usbipd_output"
   else
-    echo "   (sin salida de usbipd; confirma que esté instalado en Windows)" >&2
+    echo "⚠️  No obtuve salida de 'usbipd list'. ¿Está usbipd instalado en Windows?" >&2
   fi
   while true; do
     if [ -t 0 ]; then
@@ -246,10 +318,9 @@ _ardu_simple_busid() {
 }
 
 _ardu_simple_attach_usb() {
-  command -v powershell.exe >/dev/null 2>&1 || return 1
   local busid
   busid="$(_ardu_simple_busid)" || return 1
-  powershell.exe -NoProfile -Command "usbipd attach --wsl --busid $busid" >/dev/null 2>&1 && return 0
+  _ardu_simple_usbipd_attach "$busid" >/dev/null 2>&1 && return 0
   echo "⚠️  usbipd attach falló; prueba ejecutar en PowerShell (Admin):" >&2
   echo "    usbipd bind --busid $busid --force" >&2
   echo "    usbipd attach --wsl --busid $busid" >&2
