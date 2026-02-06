@@ -229,9 +229,60 @@ arduino_run() {
   done
 }
 
+arduino_help() {
+  command -v compilar >/dev/null 2>&1 || {
+    echo "❌ Falta la función compilar (revisa 700-arduino/710-simple.sh)." >&2
+    return 1
+  }
+  command -v upload >/dev/null 2>&1 || {
+    echo "❌ Falta la función upload (revisa 700-arduino/710-simple.sh)." >&2
+    return 1
+  }
+  command -v monitor >/dev/null 2>&1 || {
+    echo "❌ Falta la función monitor (revisa 700-arduino/710-simple.sh)." >&2
+    return 1
+  }
 
+  local ino_root="${ARDUINO_INO_ROOT:-$HOME/arduino/ino}"
+  if [ ! -d "$ino_root" ]; then
+    echo "❌ No existe la carpeta de proyectos: $ino_root" >&2
+    echo "👉  Crea la estructura 'ino/<proyecto>/<proyecto>.ino' o exporta ARDUINO_INO_ROOT." >&2
+    return 1
+  }
 
+  local busid
+  busid="$(_ardu_simple_busid)" || return 1
+  _ardu_simple_ensure_usb_attached || return 1
+  echo "🔌 BUSID detectado y adjuntado: $busid"
 
+  while true; do
+    echo
+    echo "========= Arduino Help ========="
+    echo "1) Compilar proyecto (.ino)"
+    echo "2) Subir a la placa conectada"
+    echo "3) Monitor serie (usa BUSID detectado)"
+    echo "0) Salir"
+    read -rp "Opción: " o
 
-
-
+    case "$o" in
+      1)
+        local project
+        project="$(_ardu_help_choose_project "$ino_root")" || continue
+        compilar "$project"
+        ;;
+      2)
+        local project
+        project="$(_ardu_help_choose_project "$ino_root")" || continue
+        upload "$project"
+        ;;
+      3)
+        _ardu_simple_ensure_usb_attached || continue
+        read -rp "Baudrate [115200]: " b
+        b="${b:-115200}"
+        monitor "$b"
+        ;;
+      0) return ;;
+      *) echo "⚠️  Opción inválida" ;;
+    esac
+  done
+}

@@ -70,6 +70,15 @@ _ardu_simple_choose_dir() {
   _ardu_simple_pick_from_list "Elige carpeta:" <<<"$dirs"
 }
 
+_ardu_help_choose_project() {
+  local root="${1:-$PWD}"
+  local dirs
+  dirs="$(_ardu_simple_list_dirs "$root")"
+  [ -z "$dirs" ] && { echo "❌ No encontré proyectos .ino dentro de $root" >&2; return 1; }
+  echo "Proyectos disponibles en $root:"
+  _ardu_simple_pick_from_list "Elige proyecto:" <<<"$dirs"
+}
+
 _ardu_simple_fqbn_file="$HOME/.arduino-helper-fqbn"
 _ardu_simple_busid_file="$HOME/.arduino-helper-busid"
 
@@ -120,24 +129,7 @@ _ardu_simple_usbipd_list() {
     return $?
   fi
   command -v powershell.exe >/dev/null 2>&1 || return 1
-  local ps_script
-  ps_script=$(cat <<'PWS'
-$exe = $Env:USBIPD_EXE
-if (-not $exe) {
-  if (Get-Command usbipd -ErrorAction SilentlyContinue) {
-    $exe = 'usbipd'
-  } elseif (Test-Path 'C:\Program Files\usbipd-win\usbipd.exe') {
-    $exe = 'C:\Program Files\usbipd-win\usbipd.exe'
-  } elseif (Test-Path 'C:\Program Files (x86)\usbipd-win\usbipd.exe') {
-    $exe = 'C:\Program Files (x86)\usbipd-win\usbipd.exe'
-  }
-}
-if ($exe) {
-  & $exe list
-}
-PWS
-)
-  powershell.exe -NoProfile -Command "$ps_script"
+  powershell.exe -NoProfile -Command "usbipd list"
 }
 
 _ardu_simple_usbipd_attach() {
@@ -147,24 +139,7 @@ _ardu_simple_usbipd_attach() {
     return $?
   fi
   command -v powershell.exe >/dev/null 2>&1 || return 1
-  local ps_script
-  ps_script=$(cat <<PWS
-\$exe = \$Env:USBIPD_EXE
-if (-not \$exe) {
-  if (Get-Command usbipd -ErrorAction SilentlyContinue) {
-    \$exe = 'usbipd'
-  } elseif (Test-Path 'C:\\Program Files\\usbipd-win\\usbipd.exe') {
-    \$exe = 'C:\\Program Files\\usbipd-win\\usbipd.exe'
-  } elseif (Test-Path 'C:\\Program Files (x86)\\usbipd-win\\usbipd.exe') {
-    \$exe = 'C:\\Program Files (x86)\\usbipd-win\\usbipd.exe'
-  }
-}
-if (\$exe) {
-  & \$exe attach --wsl --busid $1
-}
-PWS
-)
-  powershell.exe -NoProfile -Command "$ps_script"
+  powershell.exe -NoProfile -Command "usbipd attach --wsl --busid $1"
 }
 
 _ardu_simple_auto_fqbn() {
