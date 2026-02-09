@@ -178,6 +178,7 @@ arduino_help() {
     echo "1) Compilar proyecto (.ino)"
     echo "2) Subir a la placa conectada"
     echo "3) Monitor serie (usa BUSID detectado)"
+    echo "4) Compilar + subir + monitor"
     echo "0) Salir"
     read -rp "Opción: " o
 
@@ -193,6 +194,16 @@ arduino_help() {
         upload "$project"
         ;;
       3)
+        _ardu_simple_ensure_usb_attached || continue
+        read -rp "Baudrate [115200]: " b
+        b="${b:-115200}"
+        monitor "$b"
+        ;;
+      4)
+        local project
+        project="$(_ardu_help_choose_project "$ino_root")" || continue
+        compilar "$project" || continue
+        upload "$project" || continue
         _ardu_simple_ensure_usb_attached || continue
         read -rp "Baudrate [115200]: " b
         b="${b:-115200}"
