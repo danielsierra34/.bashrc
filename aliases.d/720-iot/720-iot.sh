@@ -1,53 +1,47 @@
 ########################################################################################## IOT
-cupcarbon_docker_build(){
-    if [ -z "$1" ]; then
-        echo "Usage: cupcarbon_docker_build <zip_or_dir> [tag]"
+cupcarbon_run(){
+    local image="${1:-danielsierra34/cupcarbon:latest}"
+    local vnc_pass="${2:-${VNC_PASSWORD:-}}"
+    local host_port_vnc="${3:-5901}"
+    local host_port_web="${4:-6080}"
+
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "Error: docker no está instalado o no está en PATH."
         return 1
     fi
 
-    local src="$1"
-    local tag="${2:-cupcarbon:novnc}"
-    local workdir=""
-
-    if [ -f "$src" ] && [[ "$src" == *.zip ]]; then
-        local base_dir
-        base_dir="$(dirname "$src")"
-        unzip -o "$src" -d "$base_dir" >/dev/null
-        workdir="$base_dir/cupcarbon_docker"
-    else
-        workdir="$src"
-    fi
-
-    if [ ! -d "$workdir" ]; then
-        echo "Error: directory not found: $workdir"
-        return 1
-    fi
-
-    local df="$workdir/dockerfile"
-    if [ ! -f "$df" ]; then
-        if [ -f "$workdir/Dockerfile" ]; then
-            df="$workdir/Dockerfile"
-        else
-            echo "Error: Dockerfile not found in $workdir"
+    # Login si no existe config de Docker
+    if [ ! -f "$HOME/.docker/config.json" ]; then
+        echo "Necesitas iniciar sesión en Docker Hub."
+        read -r -p "Docker Hub user: " docker_user
+        if [ -z "$docker_user" ]; then
+            echo "Error: usuario vacío."
             return 1
         fi
+        docker login --username "$docker_user" || return 1
     fi
 
-    docker build --no-cache -t "$tag" -f "$df" "$workdir"
-}
+    echo "Descargando imagen: $image"
+    docker pull "$image" || return 1
 
-cupcarbon_docker_run(){
-    local tag="${1:-cupcarbon:novnc}"
-    local vnc_pass="${2:-${VNC_PASSWORD:-ClaveSegura123}}"
+    echo "Ejecutando contenedor..."
+    if [ -n "$vnc_pass" ]; then
+        docker run -it --rm \
+            -p "${host_port_web}:6080" \
+            -p "${host_port_vnc}:5901" \
+            -e VNC_PASSWORD="$vnc_pass" \
+            "$image"
+        return $?
+    fi
+
     docker run -it --rm \
-        -p 6080:6080 \
-        -p 5901:5901 \
-        -e VNC_PASSWORD="$vnc_pass" \
-        "$tag"
+        -p "${host_port_web}:6080" \
+        -p "${host_port_vnc}:5901" \
+        "$image"
 }
 
-cupcarbon_docker_help(){
-    echo "Build: cupcarbon_docker_build <zip_or_dir> [tag]"
-    echo "Run:   cupcarbon_docker_run [tag] [vnc_password]"
-    echo "URL:   http://localhost:6080/vnc.html"
+cupcarbon_help(){
+    echo "Uso: cupcarbon_run [imagen] [vnc_password] [host_port_vnc] [host_port_web]"
+    echo "Ejemplo: cupcarbon_run danielsierra34/cupcarbon:latest MiClave 5901 6080"
+    echo "Luego abre: http://localhost:6080/vnc.html"
 }
