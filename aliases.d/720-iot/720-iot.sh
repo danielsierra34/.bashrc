@@ -43,5 +43,5 @@ cupcarbon_run(){
 cupcarbon_help(){
     echo "Uso: cupcarbon_run [imagen] [vnc_password] [host_port_vnc] [host_port_web]"
     echo "Ejemplo: cupcarbon_run danielsierra34/cupcarbon:latest MiClave 5901 6080"
-    echo "Luego abre: http://localhost:6080/vnc.html"
+    echo "Luego abre: http://localhost:6080/vnc.html?autoconnect=1&resize=scale"
 }
