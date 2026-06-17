@@ -305,3 +305,62 @@ docker_clean(){
     sudo docker system prune -a --volumes
 }
 
+k3s_install() {
+    local OS_TYPE="$1"
+
+    if [[ -z "$OS_TYPE" ]]; then
+        echo "Uso: install_k3s <debian|ubuntu>"
+        return 1
+    fi
+
+    OS_TYPE=$(echo "$OS_TYPE" | tr '[:upper:]' '[:lower:]')
+
+    case "$OS_TYPE" in
+        debian|ubuntu)
+            echo "Sistema operativo soportado: $OS_TYPE"
+            ;;
+        *)
+            echo "Error: Sistema operativo no soportado: $OS_TYPE"
+            echo "Opciones válidas: debian | ubuntu"
+            return 1
+            ;;
+    esac
+
+    echo "Actualizando paquetes..."
+    apt-get update -y
+
+    echo "Instalando dependencias..."
+    apt-get install -y \
+        curl \
+        wget \
+        vim \
+        git \
+        ca-certificates \
+        gnupg \
+        lsb-release \
+        net-tools \
+        unzip
+
+    echo "Deshabilitando swap..."
+    swapoff -a
+    sed -i '/swap/d' /etc/fstab
+
+    echo "Instalando K3s..."
+    curl -sfL https://get.k3s.io | sh -
+
+    echo "Habilitando servicio..."
+    systemctl enable k3s
+    systemctl start k3s
+
+    echo ""
+    echo "====================================="
+    echo "K3s instalado correctamente"
+    echo "====================================="
+
+    kubectl get nodes
+
+    echo ""
+    echo "Kubeconfig:"
+    echo "/etc/rancher/k3s/k3s.yaml"
+}
+
