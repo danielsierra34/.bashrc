@@ -364,3 +364,26 @@ k3s_install() {
     echo "/etc/rancher/k3s/k3s.yaml"
 }
 
+kubectl_install() {
+
+    echo "Instalando kubectl..."
+
+    KUBECTL_VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+
+    curl -LO "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+
+    chmod +x kubectl
+
+    mv kubectl /usr/local/bin/
+
+    echo "Verificando instalación..."
+
+    kubectl version --client
+
+    echo ""
+    echo "====================================="
+    echo "kubectl instalado correctamente"
+    echo "Versión: ${KUBECTL_VERSION}"
+    echo "====================================="
+}
+
