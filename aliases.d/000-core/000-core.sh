@@ -165,3 +165,60 @@ tree_list(){
 tree_install(){
     sudo apt install tree -y
 }
+
+setup_debian_node() {
+
+    DOMAIN=$1
+    PORT=${2:-3000}
+
+    echo "Instalando dependencias..."
+
+    sudo apt update -y
+    sudo apt install -y curl nginx
+
+    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+    sudo apt install -y nodejs
+
+    sudo npm install -g pm2
+
+    echo "Configurando Nginx..."
+
+    sudo tee /etc/nginx/sites-available/${DOMAIN} > /dev/null <<EOF
+server {
+    listen 80;
+    server_name ${DOMAIN};
+
+    location / {
+        proxy_pass http://127.0.0.1:${PORT};
+
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF
+
+    sudo ln -sf \
+        /etc/nginx/sites-available/${DOMAIN} \
+        /etc/nginx/sites-enabled/${DOMAIN}
+
+    sudo rm -f /etc/nginx/sites-enabled/default
+
+    sudo nginx -t || return 1
+
+    sudo systemctl enable nginx
+    sudo systemctl restart nginx
+
+    echo ""
+    echo "===================================="
+    echo "Debian Node Server listo"
+    echo "Dominio: ${DOMAIN}"
+    echo "Puerto: ${PORT}"
+    echo "===================================="
+}
