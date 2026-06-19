@@ -166,59 +166,132 @@ tree_install(){
     sudo apt install tree -y
 }
 
-setup_debian_node() {
+server-setup() {
 
-    DOMAIN=$1
-    PORT=${2:-3000}
+    OS=$1
 
-    echo "Instalando dependencias..."
+    if [[ "$OS" != "debian" && "$OS" != "ubuntu" ]]; then
+        echo ""
+        echo "Uso:"
+        echo "server-setup debian"
+        echo "server-setup ubuntu"
+        echo ""
+        return 1
+    fi
+
+    echo "======================================="
+    echo "Base Server Setup"
+    echo "OS: $OS"
+    echo "======================================="
 
     sudo apt update -y
-    sudo apt install -y curl nginx
+    sudo apt upgrade -y
+
+    sudo apt install -y \
+        curl \
+        wget \
+        git \
+        unzip \
+        zip \
+        nginx \
+        certbot \
+        python3-certbot-nginx \
+        jq \
+        htop \
+        dnsutils \
+        net-tools \
+        build-essential \
+        ca-certificates \
+        gnupg
+
+    echo ""
+    echo "Instalando Node.js LTS..."
 
     curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
     sudo apt install -y nodejs
 
+    echo ""
+    echo "Instalando PM2..."
+
     sudo npm install -g pm2
 
-    echo "Configurando Nginx..."
+    sudo systemctl enable nginx
+    sudo systemctl start nginx
 
-    sudo tee /etc/nginx/sites-available/${DOMAIN} > /dev/null <<EOF
+    echo ""
+    echo "======================================="
+    echo "Servidor preparado correctamente"
+    echo "======================================="
+}
+
+site-deploy() {
+
+    DOMAIN=$1
+    WEBROOT=$(pwd)
+
+    if [ -z "$DOMAIN" ]; then
+        echo ""
+        echo "Uso:"
+        echo "site-deploy dominio.com"
+        echo ""
+        return 1
+    fi
+
+    echo ""
+    echo "======================================="
+    echo "Site Deploy"
+    echo "Domain : $DOMAIN"
+    echo "WebRoot: $WEBROOT"
+    echo "======================================="
+
+    sudo tee /etc/nginx/sites-available/$DOMAIN > /dev/null << EOF
 server {
     listen 80;
-    server_name ${DOMAIN};
+    listen [::]:80;
+
+    server_name $DOMAIN;
+
+    root $WEBROOT;
+    index index.html;
+
+    autoindex on;
+    autoindex_exact_size off;
+    autoindex_localtime on;
 
     location / {
-        proxy_pass http://127.0.0.1:${PORT};
-
-        proxy_http_version 1.1;
-
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
+        try_files \$uri \$uri/ =404;
     }
 }
 EOF
 
     sudo ln -sf \
-        /etc/nginx/sites-available/${DOMAIN} \
-        /etc/nginx/sites-enabled/${DOMAIN}
+        /etc/nginx/sites-available/$DOMAIN \
+        /etc/nginx/sites-enabled/$DOMAIN
 
     sudo rm -f /etc/nginx/sites-enabled/default
 
     sudo nginx -t || return 1
 
-    sudo systemctl enable nginx
-    sudo systemctl restart nginx
+    sudo systemctl reload nginx
 
     echo ""
-    echo "===================================="
-    echo "Debian Node Server listo"
-    echo "Dominio: ${DOMAIN}"
-    echo "Puerto: ${PORT}"
-    echo "===================================="
+    echo "======================================="
+    echo "Solicitando SSL..."
+    echo "======================================="
+
+    sudo certbot \
+        --nginx \
+        -d "$DOMAIN" \
+        --redirect \
+        --agree-tos \
+        --register-unsafely-without-email \
+        --non-interactive
+
+    echo ""
+    echo "======================================="
+    echo "Sitio desplegado correctamente"
+    echo "======================================="
+    echo "URL : https://$DOMAIN"
+    echo "ROOT: $WEBROOT"
+    echo "======================================="
 }
