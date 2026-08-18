@@ -16,6 +16,116 @@ _graphify_workspace_root() {
     fi
 }
 
+_graphify_platforms() {
+    printf '%s\n' codex claude
+}
+
+_graphify_install_platforms() {
+    local platform graphify_bin
+    graphify_bin="$(_graphify_bin)"
+
+    for platform in "$@"; do
+        "$graphify_bin" install --platform "$platform"
+    done
+}
+
+_graphify_agents_begin_marker() {
+    printf '%s' '<!-- BEGIN GRAPHIFY-CODEX CUSTOM -->'
+}
+
+_graphify_agents_end_marker() {
+    printf '%s' '<!-- END GRAPHIFY-CODEX CUSTOM -->'
+}
+
+_graphify_agents_custom_block() {
+    cat <<'EOF'
+<!-- BEGIN GRAPHIFY-CODEX CUSTOM -->
+
+## Graphify + Codex
+
+- WSL Debian is the execution environment for project tools.
+- If Codex is running from Windows or PowerShell, switch into WSL Debian before invoking Graphify.
+- Graphify is installed inside WSL Debian and should not be treated as a connector, plugin, or external integration.
+- Apply the same project integration flow for Codex and Claude when Graphify is available.
+- For codebase questions, consult Graphify first whenever `graphify-out/graph.json` exists.
+- Do not require the user to type `/graphify` or mention Graphify explicitly.
+- Prefer `graphify query "<question>"` first.
+- Use `graphify explain "<concept>"` for specific concepts.
+- Use `graphify path "<A>" "<B>"` for relationships.
+- If a query returns `No matching nodes found`, retry with more specific real file, class, function, or component names before abandoning Graphify.
+- Use `graphify-out/GRAPH_REPORT.md` for broad architectural analysis.
+- Use `graphify-out/wiki/index.md` if it exists for general navigation.
+- After modifying code, run `graphify update .`.
+- Graphify is the first pass for locating relevant codebase areas; Codex can then inspect the source files Graphify identified.
+
+<!-- END GRAPHIFY-CODEX CUSTOM -->
+EOF
+}
+
+_graphify_upsert_agents_block() {
+    local agents_file temp_file begin_marker end_marker
+    agents_file="$1"
+    begin_marker="$(_graphify_agents_begin_marker)"
+    end_marker="$(_graphify_agents_end_marker)"
+    temp_file="$(mktemp)"
+
+    if [ -f "$agents_file" ]; then
+        awk -v begin="$begin_marker" -v end="$end_marker" '
+            BEGIN { skip = 0 }
+            $0 == begin { skip = 1; next }
+            $0 == end { skip = 0; next }
+            skip == 0 { print }
+        ' "$agents_file" > "$temp_file"
+    else
+        : > "$temp_file"
+    fi
+
+    {
+        printf '\n'
+        _graphify_agents_custom_block
+    } >> "$temp_file"
+
+    mv "$temp_file" "$agents_file"
+}
+
+_graphify_setup_project_codex() {
+    local start_dir root_dir agents_file begin_marker
+    start_dir="${1:-$PWD}"
+
+    if [ -d "$start_dir" ]; then
+        cd "$start_dir" || return 1
+    elif [ -f "$start_dir" ]; then
+        cd "$(dirname "$start_dir")" || return 1
+    elif [ -n "$start_dir" ]; then
+        cd "$start_dir" 2>/dev/null || return 1
+    fi
+
+    root_dir="$(_graphify_workspace_root)"
+    agents_file="$root_dir/AGENTS.md"
+    begin_marker="$(_graphify_agents_begin_marker)"
+
+    if [ -f "$agents_file" ] && grep -Fq "$begin_marker" "$agents_file"; then
+        return 0
+    fi
+
+    if ! command -v graphify >/dev/null 2>&1; then
+        echo "Graphify no esta instalado en esta shell."
+        return 1
+    fi
+
+    (
+        cd "$root_dir" || exit 1
+        graphify codex install
+    ) || return 1
+
+    (
+        cd "$root_dir" || exit 1
+        graphify claude install
+    ) || return 1
+
+    _graphify_upsert_agents_block "$agents_file"
+}
+
 graphify_help() {
     cat <<'EOF'
 Graphify helpers
@@ -136,12 +246,8 @@ graphify_install() {
     "$graphify_bin" --version 2>/dev/null || "$graphify_bin" --help | head -n 1
 
     echo ""
-    echo "Configurando integracion con Codex..."
-    if command -v codex >/dev/null 2>&1; then
-        "$graphify_bin" install --platform codex
-    else
-        echo "Codex no esta disponible; omitiendo paso de integracion."
-    fi
+    echo "Configurando integracion con Codex y Claude..."
+    _graphify_install_platforms codex claude
 
     echo ""
     echo "======================================"
@@ -177,9 +283,7 @@ graphify_update() {
         return 1
     fi
 
-    if command -v codex >/dev/null 2>&1; then
-        "$graphify_bin" install --platform codex
-    fi
+    _graphify_install_platforms codex claude
 
     "$graphify_bin" --version 2>/dev/null || "$graphify_bin" --help | head -n 1
 }
@@ -203,7 +307,7 @@ graphify_uninstall() {
 }
 
 graphify_run() {
-    local target graphify_bin
+    local target graphify_bin prep_target
     target="${1:-.}"
     shift || true
     graphify_bin="$(_graphify_bin)"
@@ -213,23 +317,19 @@ graphify_run() {
         return 1
     fi
 
+    if [ ! -e "$target" ] && [ "$target" != "." ]; then
+        echo "No existe: $target"
+        return 1
+    fi
+
     if [ -d "$target" ]; then
-        (cd "$target" && "$graphify_bin" . "$@")
-        return $?
+        prep_target="$target"
+    else
+        prep_target="$(dirname "$target")"
     fi
 
-    if [ "$target" = "." ]; then
-        "$graphify_bin" . "$@"
-        return $?
-    fi
-
-    if [ -e "$target" ]; then
-        "$graphify_bin" "$target" "$@"
-        return $?
-    fi
-
-    echo "No existe: $target"
-    return 1
+    _graphify_setup_project_codex "$prep_target" || return 1
+    "$graphify_bin" update "$target" "$@"
 }
 
 graphify_batch() {
@@ -288,6 +388,14 @@ output/
 reports/
 .graphify/
 EOF
+
+    if command -v graphify >/dev/null 2>&1; then
+        if ! _graphify_setup_project_codex "$PWD"; then
+            echo "Graphify no pudo completar la integracion local; el workspace ya quedo creado."
+        fi
+    else
+        echo "Graphify no esta disponible; se creo el workspace pero no la integracion local con Codex."
+    fi
 
     printf '%s\n' "$PWD"
 }
