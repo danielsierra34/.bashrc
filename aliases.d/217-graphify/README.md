@@ -16,7 +16,7 @@ Instalacion e integracion de Graphify con Codex.
 - `graphify_codex_note [mensaje]`: crea una nota en `.codex/notes/`.
 
 ## Personalizacion
-- `GRAPHIFY_UV_PACKAGE`: nombre del paquete a instalar con `uv tool install` si no coincide con `graphify`.
+- `GRAPHIFY_UV_PACKAGE`: nombre del paquete a instalar con `uv tool install` si no coincide con `graphifyy`.
 - `GRAPHIFY_BIN`: nombre del binario que debe quedar disponible en `PATH` despues de la instalacion.
 
 ## Flujo

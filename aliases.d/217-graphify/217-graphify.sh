@@ -5,7 +5,7 @@ _graphify_bin() {
 }
 
 _graphify_pkg() {
-    printf '%s' "${GRAPHIFY_UV_PACKAGE:-graphify}"
+    printf '%s' "${GRAPHIFY_UV_PACKAGE:-graphifyy}"
 }
 
 _graphify_workspace_root() {
@@ -32,7 +32,7 @@ graphify_scan_gitignore [ruta]
 graphify_codex_note [mensaje]
 
 Environment:
-- GRAPHIFY_UV_PACKAGE: package name for `uv tool install` and `uv tool upgrade`
+- GRAPHIFY_UV_PACKAGE: package name for `uv tool install` and `uv tool upgrade` (default: graphifyy)
 - GRAPHIFY_BIN: binary name expected in PATH after install
 
 Typical flow:
