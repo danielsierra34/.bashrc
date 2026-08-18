@@ -99,6 +99,30 @@ pyenv_activate_venv() {
     source "$ENV_DIR/bin/activate"
 }
 
+venv_auto() {
+  local dir pybin
+  dir="${1:-.venv}"
+  pybin="${2:-python3}"
+
+  if ! command -v "$pybin" >/dev/null 2>&1; then
+    echo "No encuentro '$pybin' en PATH."
+    return 1
+  fi
+
+  if [ ! -d "$dir" ]; then
+    echo "Creando entorno virtual en $dir ..."
+    "$pybin" -m venv "$dir" || return 1
+  fi
+
+  if [ ! -f "$dir/bin/activate" ]; then
+    echo "No encuentro el script de activacion en $dir/bin/activate"
+    return 1
+  fi
+
+  # shellcheck disable=SC1090
+  . "$dir/bin/activate"
+}
+
 pyenv_gitignore() {
   local file=".gitignore"
 
@@ -214,4 +238,3 @@ pycache_delete(){
 pytestcache_delete(){
     find . -type d -name ".pytest_cache" -exec rm -r {} +
 }
-

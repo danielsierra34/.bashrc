@@ -109,6 +109,45 @@ port_kill() {
     sudo kill -9 "$1"
 }
 
+port_free() {
+    local port pids auto_yes answer
+    port="$1"
+    auto_yes="${2:-}"
+
+    if [ -z "$port" ]; then
+        echo "Uso: port_free <puerto> [--yes]"
+        return 1
+    fi
+
+    if ! [[ "$port" =~ ^[0-9]+$ ]]; then
+        echo "El puerto debe ser numerico: $port"
+        return 1
+    fi
+
+    pids="$(sudo lsof -t -i tcp:"$port" -sTCP:LISTEN 2>/dev/null | sort -u)"
+    if [ -z "$pids" ]; then
+        echo "No hay procesos escuchando en el puerto $port."
+        return 0
+    fi
+
+    echo "Procesos en el puerto $port:"
+    sudo lsof -i tcp:"$port" -sTCP:LISTEN
+
+    if [ "$auto_yes" != "--yes" ] && [ "$auto_yes" != "-y" ]; then
+        read -r -p "¿Terminar estos procesos? (y/N): " answer
+        case "${answer,,}" in
+            y|yes)
+                ;;
+            *)
+                echo "Cancelado."
+                return 1
+                ;;
+        esac
+    fi
+
+    printf '%s\n' "$pids" | xargs -r sudo kill -9
+}
+
 ssh_iniciar() {
     eval "$(ssh-agent -s)"
 }
@@ -164,6 +203,63 @@ tree_list(){
 
 tree_install(){
     sudo apt install tree -y
+}
+
+repo_sanity() {
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        echo "No estas dentro de un repositorio Git."
+        return 1
+    fi
+
+    local root branch remote dirty codex_dir
+    root="$(git rev-parse --show-toplevel 2>/dev/null)"
+    branch="$(git branch --show-current 2>/dev/null)"
+    remote="$(git remote get-url origin 2>/dev/null)"
+    dirty="$(git status --short 2>/dev/null | wc -l | tr -d ' ')"
+    codex_dir="$root/.codex"
+
+    echo "repo: $root"
+    echo "branch: ${branch:-detached}"
+    echo "remote_origin: ${remote:-none}"
+    echo "dirty_files: ${dirty:-0}"
+    echo "codex_dir: $codex_dir"
+
+    if [ -d "$codex_dir" ]; then
+        echo "codex: present"
+    else
+        echo "codex: missing"
+    fi
+}
+
+env_doctor() {
+    local missing=0 cmd
+    local commands=(
+        bash
+        git
+        python3
+        pip3
+        curl
+        npm
+        uv
+        docker
+        gh
+        codex
+        arduino-cli
+        ollama
+        tree
+        jq
+    )
+
+    for cmd in "${commands[@]}"; do
+        if command -v "$cmd" >/dev/null 2>&1; then
+            printf '[ok] %s -> %s\n' "$cmd" "$(command -v "$cmd")"
+        else
+            printf '[missing] %s\n' "$cmd"
+            missing=1
+        fi
+    done
+
+    return "$missing"
 }
 
 server-setup() {

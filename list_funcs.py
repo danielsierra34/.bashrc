@@ -5,7 +5,7 @@ for path in sorted(root.rglob('*.sh')):
     text = path.read_text(encoding="utf-8").splitlines()
     funcs = []
     for line in text:
-        m = re.match(r"\s*([A-Za-z0-9_]+)\s*\(\)\s*{", line)
+        m = re.match(r"\s*([A-Za-z0-9_-]+)\s*\(\)\s*{", line)
         if m:
             funcs.append(m.group(1))
     aliases = []

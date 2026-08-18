@@ -13,8 +13,11 @@ Utilidades esenciales para depurar proyectos locales, automatizar tareas de Git 
 - test_all: dispara python -m unittest discover en el proyecto activo.
 - watchdog / watchdog_always: usan watchmedo para correr pruebas al detectar cambios.
 - port_check puerto y port_kill pid: inspeccionan puertos ocupados y cierran procesos.
+- port_free puerto [--yes]: detecta procesos en escucha y los termina con confirmacion.
 - ssh_iniciar, ssh_generar nombre, ssh_activar clave: flujo completo para llaves SSH.
 - tree_list / tree_install: instalan tree y listan carpetas excluyendo artefactos.
+- repo_sanity: resume rama, remoto, suciedad del arbol y presencia de .codex.
+- env_doctor: comprueba binarios base del toolkit y reporta faltantes.
 
 ## Alias
 - iadnode_connect: abre una sesión SSH preconfigurada contra el servidor Ghost.

@@ -8,6 +8,7 @@ Automatiza la instalación de pyenv, la creación de entornos y la configuració
 - pyenv_version: muestra la versión activa que expone pyenv.
 - pyenv_venv <nombre>: crea un entorno virtual con pyenv en .<nombre>.
 - pyenv_activate_venv <nombre>: activa el entorno generado con pyenv_venv.
+- venv_auto [dir] [python]: crea .venv si hace falta y la activa en la shell actual.
 - pyenv_gitignore: genera un .gitignore completo orientado a proyectos Python.
 - pyenv_create_settings: crea .vscode/settings.json con auto-format y organize imports.
 
