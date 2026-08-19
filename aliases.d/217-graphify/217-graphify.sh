@@ -1,5 +1,10 @@
 ########################################################################################## GRAPHIFY
 
+# Captured at source time (not inside a function) so it resolves correctly
+# regardless of where this repo was cloned -- graphify-patch/reapply.sh below
+# must be found by clone location, not a hardcoded ~/bashrc path.
+_GRAPHIFY_MODULE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+
 _graphify_bin() {
     printf '%s' "${GRAPHIFY_BIN:-graphify}"
 }
@@ -18,6 +23,29 @@ _graphify_workspace_root() {
 
 _graphify_platforms() {
     printf '%s\n' codex claude
+}
+
+# Reapplies the local, un-upstreamed generic-textual-fallback patch
+# (graphify-patch/, see its README.md) onto whatever Graphify install is
+# currently active. Every `uv tool install`/`uv tool upgrade` writes a clean
+# venv, which silently wipes that patch -- so both graphify_install and
+# graphify_update call this right after touching the binary. A missing
+# graphify-patch/ (an older clone, or the patch deliberately removed) is not
+# an error: this module must keep working without it.
+_graphify_reapply_local_patch() {
+    local reapply_script
+    reapply_script="$_GRAPHIFY_MODULE_DIR/graphify-patch/reapply.sh"
+
+    if [ ! -f "$reapply_script" ]; then
+        return 0
+    fi
+
+    echo ""
+    echo "Reaplicando el parche local de Graphify (fallback textual generico)..."
+    if ! bash "$reapply_script"; then
+        echo "[warn] No se pudo reaplicar $reapply_script; revisa graphify-patch/README.md" >&2
+        return 1
+    fi
 }
 
 _graphify_install_platforms() {
@@ -289,6 +317,8 @@ graphify_install() {
     echo "Configurando integracion con Codex y Claude..."
     _graphify_install_platforms codex claude
 
+    _graphify_reapply_local_patch
+
     echo ""
     echo "======================================"
     echo " Instalacion completada"
@@ -328,6 +358,8 @@ graphify_update() {
     fi
 
     _graphify_install_platforms codex claude
+
+    _graphify_reapply_local_patch
 
     "$graphify_bin" --version 2>/dev/null || "$graphify_bin" --help | head -n 1
 }

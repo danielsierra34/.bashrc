@@ -139,6 +139,25 @@ El bloque administrado por este modulo deja claro que:
 - `graphify_scan_gitignore` la agrega a `.gitignore`, pero el `.gitignore` no afecta archivos que Git ya rastreaba de antes.
 - Si detecta archivos ya versionados dentro de `graphify-out/`, solo muestra una advertencia sugiriendo `git rm -r --cached graphify-out/`; nunca ejecuta `git rm`, `git add` ni `git commit` automaticamente.
 
+## Parche local de Graphify (`graphify-patch/`)
+
+`graphify-patch/` es una copia de respaldo de un parche aplicado directamente
+a la instalacion de Graphify (`~/.local/share/uv/tools/graphifyy/...`), **no**
+a este repo — agrega un fallback textual generico para extensiones que
+Graphify no reconoce (`.cml`, `.puml`, `.mmd`, `.customdsl`, etc.), gateado
+por un sniff binario/texto en vez de una whitelist. Detalle completo del
+parche en `graphify-patch/README.md`.
+
+El problema: cada `uv tool install`/`uv tool upgrade` escribe un venv limpio
+y borra ese parche, y si clonas este repo en otra maquina, la instalacion de
+Graphify ahi tampoco lo tiene. Por eso `graphify_install` y `graphify_update`
+llaman a `_graphify_reapply_local_patch` al final — busca
+`graphify-patch/reapply.sh` **relativo a este mismo archivo**
+(`_GRAPHIFY_MODULE_DIR`, capturado con `${BASH_SOURCE[0]}` al cargar el
+modulo, nunca una ruta `~/bashrc` fija), asi que funciona sin importar donde
+clonaste el repo. Si `graphify-patch/` no existe (un clone viejo, o se borro
+a proposito), no es un error: el modulo sigue funcionando sin el parche.
+
 ## Notas
 
 - Esta configuracion no escribe `AGENTS.md` en `graphify_install` ni `graphify_update`; solo en la preparacion por proyecto.
