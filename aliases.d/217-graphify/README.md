@@ -5,6 +5,19 @@ Integracion de Graphify con Codex y Claude en dos niveles distintos:
 - **instalacion global**: la herramienta Graphify y sus skills globales de Codex/Claude en la shell de WSL Debian (`graphify_install`);
 - **preparacion por proyecto**: integracion local con `AGENTS.md`, `.codex/hooks.json`, `CLAUDE.md`, `.claude/settings.json` y actualizacion del grafo del repositorio (`graphify_run .`).
 
+**Regla clave: Graphify workspace != raiz de Git.** `graphify_run <ruta>` resuelve `<ruta>` (por defecto `.`) a una ruta absoluta y la usa SIEMPRE como raiz del workspace de Graphify, sin importar si existe un `.git/` ahi, mas arriba, o en ningun lado. `git rev-parse --show-toplevel` nunca se usa para decidir donde escribir `AGENTS.md`/`CLAUDE.md`/`.codex/`/`.claude/`/`graphify-out/`/`.gitignore` - esto es intencional, no un descuido: si tu proyecto vive dentro de un repo Git mas grande (monorepo, subcarpeta de un repo superior), `graphify_run .` prepara *esa subcarpeta* como su propio workspace en vez de escribir en la raiz del repo superior. Esto es valido y funciona igual con o sin Git:
+
+```
+mkdir proyecto
+cd proyecto
+graphify_run .
+
+# Git puede inicializarse despues si se desea
+git init
+```
+
+Git solo se usa para una comprobacion auxiliar y opcional (archivos de `graphify-out/` ya versionados, ver `graphify_scan_gitignore` mas abajo), nunca para reubicar el target.
+
 ```
 WSL Debian
 │
@@ -13,7 +26,7 @@ WSL Debian
 │      ├── Codex global skill   (graphify install --platform codex)
 │      └── Claude global skill  (graphify install --platform claude)
 │
-└── Proyecto (cualquier repo)
+└── Proyecto (workspace = <ruta> pasada a graphify_run, con o sin Git)
        │
        └── graphify_run .
               ├── .gitignore → graphify-out/
@@ -48,10 +61,10 @@ WSL Debian
 
 ## Funciones internas
 
-- `_graphify_setup_project`: resuelve la raiz del repositorio y ejecuta `graphify codex install` y `graphify claude install` en cada llamada (son idempotentes por si mismos), avisando y continuando con la otra integracion si una falla; luego complementa `AGENTS.md` con el bloque administrado por este modulo.
+- `_graphify_setup_project`: recibe el directorio ya resuelto por el llamador (`graphify_run` o `graphify_workspace`), se posiciona en el con `cd` y usa `pwd -P` (nunca Git) para fijar `root_dir`; ejecuta `graphify codex install` y `graphify claude install` ahi (son idempotentes por si mismos), avisando y continuando con la otra integracion si una falla; luego complementa `AGENTS.md` con el bloque administrado por este modulo.
 - `_graphify_upsert_agents_block`: inserta o reemplaza el bloque administrado por este modulo sin duplicar contenido ni acumular lineas en blanco en ejecuciones repetidas.
 - `_graphify_agents_custom_block`: genera el bloque de instrucciones personalizado para Codex.
-- `_graphify_workspace_root`: resuelve la raiz Git del proyecto o usa el directorio actual.
+- `_graphify_workspace_root`: resuelve la raiz Git del proyecto o usa el directorio actual. Se mantiene para las funciones de solo lectura (`graphify_report_open`, `graphify_graph_open`, `graphify_codex_note`), pero `graphify_run` **ya no la usa** para decidir su workspace - ese fue el bug original (`graphify_run .` terminaba escribiendo en un repo Git superior en vez de la carpeta actual).
 - `_graphify_report_path`: localiza el reporte mas reciente en `reports/`, `output/` o en la raiz.
 - `_graphify_open_url`: intenta abrir una ruta/URL con el navegador por defecto probando `wslview`, `explorer.exe` (via `wslpath -w`), `xdg-open` y `$BROWSER`, en ese orden.
 
@@ -72,11 +85,13 @@ WSL Debian
 
 1. `graphify_workspace` crea un proyecto nuevo y llama a `_graphify_setup_project`.
 2. `graphify_run <ruta|.>` hace lo mismo para repositorios nuevos o existentes, cada vez que se ejecuta:
-   1. `graphify_scan_gitignore` asegura `graphify-out/` (y el resto de exclusiones) en `.gitignore`, y advierte si ya hay archivos de `graphify-out/` versionados.
-   2. `_graphify_setup_project` ejecuta `graphify codex install` y `graphify claude install` desde la raiz del repo. Si una falla, avisa y continua con la otra.
+   0. Resuelve `<ruta>` (por defecto `.`) a una ruta absoluta/canonica con `cd "<ruta>" && pwd -P` - ese directorio, y solo ese, es el workspace para el resto del flujo. Nunca se sube a una raiz de Git superior.
+   1. `graphify_scan_gitignore` asegura `graphify-out/` (y el resto de exclusiones) en `.gitignore` dentro de ese workspace, y advierte si ya hay archivos de `graphify-out/` versionados.
+   2. `_graphify_setup_project` ejecuta `graphify codex install` y `graphify claude install` con ese workspace como directorio de trabajo (`root_dir="$(pwd -P)"`, no `git rev-parse --show-toplevel`). Si una falla, avisa y continua con la otra.
    3. La misma funcion complementa `AGENTS.md` con instrucciones para WSL Debian, Codex y Graphify.
-   4. `graphify_run` termina con `graphify update .` para refrescar el knowledge graph (sin API).
+   4. `graphify_run` termina ejecutando `graphify update .` con el workspace como directorio de trabajo, para refrescar el knowledge graph (sin API).
 3. Nada de esto depende de que `codex` o `claude` esten instalados como CLI: `graphify codex install` / `graphify claude install` solo requieren el binario `graphify`.
+4. Nada de esto depende de Git: un workspace sin `.git/`, dentro de un repo superior, o con su propio `.git/` se comportan igual - el workspace siempre es la ruta pedida.
 
 ## Comandos que ejecutan
 
@@ -88,8 +103,8 @@ WSL Debian
   - se usa en `_graphify_setup_project` para la integracion local por proyecto (AGENTS.md + .codex/hooks.json). Se ejecuta en cada llamada; el propio comando es idempotente.
 - `graphify claude install`
   - se usa en `_graphify_setup_project` para la integracion local por proyecto (CLAUDE.md + .claude/settings.json). Se ejecuta en cada llamada; el propio comando es idempotente.
-- `graphify update <ruta>`
-  - se usa en `graphify_run` para generar o refrescar `graphify-out/graph.json` sin usar ninguna API de LLM.
+- `graphify update .`
+  - se usa en `graphify_run`, ejecutado con `cd` al workspace resuelto, para generar o refrescar `graphify-out/graph.json` sin usar ninguna API de LLM.
 - `graphify .` (extraccion completa, AST + semantica)
   - no la ejecuta ningun helper de este modulo; es manual y puede requerir una API key (Gemini/OpenAI/Anthropic/etc.) si el proyecto tiene documentacion, PDFs o imagenes.
 - `graphify query "<question>"`, `graphify explain "<concept>"`, `graphify path "<A>" "<B>"`

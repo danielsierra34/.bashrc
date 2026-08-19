@@ -107,7 +107,12 @@ _graphify_setup_project() {
         cd "$start_dir" 2>/dev/null || return 1
     fi
 
-    root_dir="$(_graphify_workspace_root)"
+    # El workspace de Graphify es "$start_dir" (ya resuelto por el cd de arriba),
+    # NUNCA la raiz de Git: usar _graphify_workspace_root aqui hacia que
+    # AGENTS.md/CLAUDE.md/.codex/.claude terminaran en un repositorio superior
+    # en vez del proyecto pedido cuando start_dir era una subcarpeta de un repo
+    # git existente (bug: graphify_run . escribia fuera del target).
+    root_dir="$(pwd -P)"
     agents_file="$root_dir/AGENTS.md"
 
     if ! command -v graphify >/dev/null 2>&1; then
@@ -346,7 +351,7 @@ graphify_uninstall() {
 }
 
 graphify_run() {
-    local target graphify_bin prep_target root_dir rc
+    local target graphify_bin prep_target rc
     target="${1:-.}"
     shift || true
     graphify_bin="$(_graphify_bin)"
@@ -368,16 +373,25 @@ graphify_run() {
         prep_target="$(dirname "$target")"
     fi
 
-    root_dir="$(cd "$prep_target" 2>/dev/null && _graphify_workspace_root)"
-    root_dir="${root_dir:-$prep_target}"
+    # El workspace de Graphify es SIEMPRE el target pedido, resuelto a ruta
+    # absoluta/canonica - nunca la raiz de Git. git rev-parse --show-toplevel
+    # (via _graphify_workspace_root) puede apuntar a un repositorio superior
+    # cuando prep_target es una subcarpeta de un repo existente, y usarlo aqui
+    # era el bug: AGENTS.md/CLAUDE.md/.codex/.claude/.gitignore terminaban
+    # fuera del target indicado por el usuario.
+    prep_target="$(cd "$prep_target" 2>/dev/null && pwd -P)"
+    if [ -z "$prep_target" ]; then
+        echo "No pude resolver la ruta: $target"
+        return 1
+    fi
 
     # cada paso avisa si falla pero no bloquea los siguientes: el .gitignore,
     # la integracion de Codex/Claude y la actualizacion del grafo son
     # independientes entre si.
-    graphify_scan_gitignore "$root_dir" || rc=1
+    graphify_scan_gitignore "$prep_target" || rc=1
     _graphify_setup_project "$prep_target" || rc=1
 
-    "$graphify_bin" update "$target" "$@" || rc=1
+    ( cd "$prep_target" && "$graphify_bin" update . "$@" ) || rc=1
 
     return "$rc"
 }
