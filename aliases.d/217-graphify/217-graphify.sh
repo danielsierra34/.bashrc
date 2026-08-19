@@ -63,7 +63,7 @@ EOF
 }
 
 _graphify_upsert_agents_block() {
-    local agents_file temp_file begin_marker end_marker
+    local agents_file temp_file begin_marker end_marker content
     agents_file="$1"
     begin_marker="$(_graphify_agents_begin_marker)"
     end_marker="$(_graphify_agents_end_marker)"
@@ -80,17 +80,24 @@ _graphify_upsert_agents_block() {
         : > "$temp_file"
     fi
 
-    {
-        printf '\n'
-        _graphify_agents_custom_block
-    } >> "$temp_file"
+    # `$(...)` recorta los saltos de linea finales, asi que esto normaliza
+    # cuantas lineas en blanco quedaron colgando tras quitar el bloque
+    # anterior. Sin esto, cada ejecucion de graphify_run agregaba una linea
+    # en blanco nueva antes del bloque (crecimiento no acotado del archivo).
+    content="$(cat "$temp_file")"
+    : > "$temp_file"
+    if [ -n "$content" ]; then
+        printf '%s\n\n' "$content" >> "$temp_file"
+    fi
+    _graphify_agents_custom_block >> "$temp_file"
 
     mv "$temp_file" "$agents_file"
 }
 
-_graphify_setup_project_codex() {
-    local start_dir root_dir agents_file begin_marker
+_graphify_setup_project() {
+    local start_dir root_dir agents_file rc
     start_dir="${1:-$PWD}"
+    rc=0
 
     if [ -d "$start_dir" ]; then
         cd "$start_dir" || return 1
@@ -102,28 +109,28 @@ _graphify_setup_project_codex() {
 
     root_dir="$(_graphify_workspace_root)"
     agents_file="$root_dir/AGENTS.md"
-    begin_marker="$(_graphify_agents_begin_marker)"
-
-    if [ -f "$agents_file" ] && grep -Fq "$begin_marker" "$agents_file"; then
-        return 0
-    fi
 
     if ! command -v graphify >/dev/null 2>&1; then
         echo "Graphify no esta instalado en esta shell."
         return 1
     fi
 
-    (
-        cd "$root_dir" || exit 1
-        graphify codex install
-    ) || return 1
+    # `graphify codex install` / `graphify claude install` son idempotentes por si
+    # mismos (no reescriben si ya estan configurados), asi que se dejan correr
+    # siempre y se delega en ellos la gestion de sus propios archivos.
+    if ! ( cd "$root_dir" && graphify codex install ); then
+        echo "[warn] 'graphify codex install' fallo en $root_dir; se continua con la integracion de Claude." >&2
+        rc=1
+    fi
 
-    (
-        cd "$root_dir" || exit 1
-        graphify claude install
-    ) || return 1
+    if ! ( cd "$root_dir" && graphify claude install ); then
+        echo "[warn] 'graphify claude install' fallo en $root_dir." >&2
+        rc=1
+    fi
 
     _graphify_upsert_agents_block "$agents_file"
+
+    return "$rc"
 }
 
 graphify_help() {
@@ -138,8 +145,36 @@ graphify_run [ruta|.]
 graphify_batch <ruta> [ruta ...]
 graphify_workspace <ruta> [nombre]
 graphify_report_open [ruta]
+graphify_graph_open [ruta]
 graphify_scan_gitignore [ruta]
 graphify_codex_note [mensaje]
+
+Niveles de comandos:
+- graphify_install
+    Instalacion GLOBAL en esta shell de WSL Debian: Python/uv/Graphify y la
+    skill global de Codex y Claude. No toca ningun proyecto especifico.
+- graphify_run .
+    Preparacion LOCAL de un proyecto: agrega graphify-out/ a .gitignore,
+    ejecuta `graphify codex install` y `graphify claude install` (AGENTS.md,
+    .codex/hooks.json, CLAUDE.md, .claude/settings.json) y termina con
+    `graphify update .`. Es el comando normal dentro de cualquier repo.
+- graphify update .
+    Solo actualiza el grafo AST/local (graphify-out/) sin usar ninguna API de
+    LLM. Es lo que usa `graphify_run` por defecto.
+- graphify .
+    Extraccion completa (AST + semantica). Puede requerir una API key
+    (Gemini/OpenAI/Anthropic/etc.) si el proyecto tiene documentacion,
+    PDFs o imagenes. Uso manual, no lo dispara `graphify_run`.
+
+Consultas sobre el grafo (una vez que graphify-out/graph.json existe):
+- graphify query "<pregunta>"
+- graphify explain "<concepto>"
+- graphify path "<A>" "<B>"
+
+Ver el grafo visualmente:
+- graphify_graph_open .   abre graphify-out/graph.html en el navegador
+                          (usa wslview/explorer.exe/xdg-open/$BROWSER, en ese orden)
+- graphify_report_open .  abre el ultimo reporte de texto en $EDITOR/less
 
 Environment:
 - GRAPHIFY_UV_PACKAGE: package name for `uv tool install` and `uv tool upgrade` (default: graphifyy)
@@ -254,13 +289,17 @@ graphify_install() {
     echo " Instalacion completada"
     echo "======================================"
     echo ""
-    echo "Para analizar el proyecto actual:"
+    echo "Esta instalacion es global (Graphify + skills de Codex y Claude)."
+    echo "No prepara ningun proyecto todavia."
+    echo ""
+    echo "Para preparar un proyecto (Codex + Claude + grafo local, sin API):"
+    echo ""
+    echo "    cd /ruta/del/proyecto"
+    echo "    graphify_run ."
+    echo ""
+    echo "Si mas adelante quieres extraccion semantica completa (requiere API key):"
     echo ""
     echo "    graphify ."
-    echo ""
-    echo "Desde Codex puedes usar:"
-    echo ""
-    echo "    \$graphify ."
     echo ""
 }
 
@@ -307,10 +346,11 @@ graphify_uninstall() {
 }
 
 graphify_run() {
-    local target graphify_bin prep_target
+    local target graphify_bin prep_target root_dir rc
     target="${1:-.}"
     shift || true
     graphify_bin="$(_graphify_bin)"
+    rc=0
 
     if ! command -v "$graphify_bin" >/dev/null 2>&1; then
         echo "Graphify no esta instalado. Ejecuta graphify_install primero."
@@ -328,8 +368,18 @@ graphify_run() {
         prep_target="$(dirname "$target")"
     fi
 
-    _graphify_setup_project_codex "$prep_target" || return 1
-    "$graphify_bin" update "$target" "$@"
+    root_dir="$(cd "$prep_target" 2>/dev/null && _graphify_workspace_root)"
+    root_dir="${root_dir:-$prep_target}"
+
+    # cada paso avisa si falla pero no bloquea los siguientes: el .gitignore,
+    # la integracion de Codex/Claude y la actualizacion del grafo son
+    # independientes entre si.
+    graphify_scan_gitignore "$root_dir" || rc=1
+    _graphify_setup_project "$prep_target" || rc=1
+
+    "$graphify_bin" update "$target" "$@" || rc=1
+
+    return "$rc"
 }
 
 graphify_batch() {
@@ -390,11 +440,11 @@ reports/
 EOF
 
     if command -v graphify >/dev/null 2>&1; then
-        if ! _graphify_setup_project_codex "$PWD"; then
-            echo "Graphify no pudo completar la integracion local; el workspace ya quedo creado."
+        if ! _graphify_setup_project "$PWD"; then
+            echo "Graphify no pudo completar toda la integracion local; el workspace ya quedo creado."
         fi
     else
-        echo "Graphify no esta disponible; se creo el workspace pero no la integracion local con Codex."
+        echo "Graphify no esta disponible; se creo el workspace pero no la integracion local con Codex/Claude."
     fi
 
     printf '%s\n' "$PWD"
@@ -443,8 +493,60 @@ graphify_report_open() {
     fi
 }
 
+# Intenta abrir una ruta/URL con el navegador por defecto. Prueba, en orden,
+# las herramientas tipicas de WSL (wslview del paquete wslu), el puente
+# nativo hacia el shell de Windows (explorer.exe, via wslpath) y por ultimo
+# las alternativas de Linux (xdg-open, $BROWSER) para el caso de correr
+# fuera de WSL o con WSLg configurado.
+_graphify_open_url() {
+    local target winpath
+    target="$1"
+
+    if command -v wslview >/dev/null 2>&1; then
+        wslview "$target" >/dev/null 2>&1 && return 0
+    fi
+
+    if command -v explorer.exe >/dev/null 2>&1 && command -v wslpath >/dev/null 2>&1; then
+        winpath="$(wslpath -w "$target" 2>/dev/null)"
+        if [ -n "$winpath" ]; then
+            explorer.exe "$winpath" >/dev/null 2>&1
+            return 0
+        fi
+    fi
+
+    if command -v xdg-open >/dev/null 2>&1; then
+        xdg-open "$target" >/dev/null 2>&1 && return 0
+    fi
+
+    if [ -n "${BROWSER:-}" ] && command -v "$BROWSER" >/dev/null 2>&1; then
+        "$BROWSER" "$target" >/dev/null 2>&1 && return 0
+    fi
+
+    return 1
+}
+
+graphify_graph_open() {
+    local root html
+    root="${1:-$(_graphify_workspace_root)}"
+    html="$root/graphify-out/graph.html"
+
+    if [ ! -e "$html" ]; then
+        echo "No encontre $html."
+        echo "Ejecuta 'graphify_run .' o 'graphify update .' primero para generarlo."
+        return 1
+    fi
+
+    if _graphify_open_url "$html"; then
+        echo "Abriendo en el navegador: $html"
+    else
+        echo "No pude abrir un navegador automaticamente."
+        echo "Abrilo manualmente: $html"
+        return 1
+    fi
+}
+
 graphify_scan_gitignore() {
-    local root file entry changed=0
+    local root file entry changed=0 tracked
     root="${1:-$(_graphify_workspace_root)}"
     file="$root/.gitignore"
 
@@ -452,12 +554,17 @@ graphify_scan_gitignore() {
         touch "$file" || return 1
     fi
 
+    # graphify-out/ es la carpeta real que usa Graphify (graph.json, graph.html,
+    # GRAPH_REPORT.md, cache, manifest, analysis, labels, snapshots). Es local
+    # y regenerable, por eso se ignora siempre. Las demas entradas se conservan
+    # por compatibilidad con configuraciones previas.
     for entry in \
         '.graphify/' \
         'output/' \
         'reports/' \
         'graphify-output/' \
-        'graphify-reports/'; do
+        'graphify-reports/' \
+        'graphify-out/'; do
         if ! grep -Fxq "$entry" "$file"; then
             printf '%s\n' "$entry" >> "$file"
             changed=1
@@ -468,6 +575,15 @@ graphify_scan_gitignore() {
         echo "Actualizado: $file"
     else
         echo "Sin cambios: $file"
+    fi
+
+    # .gitignore no afecta archivos que Git ya rastreaba antes de ignorarlos.
+    if git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        tracked="$(git -C "$root" ls-files -- 'graphify-out' 2>/dev/null)"
+        if [ -n "$tracked" ]; then
+            echo "[warn] Hay archivos de graphify-out/ ya versionados en Git (el .gitignore no los deja de rastrear)." >&2
+            echo "[warn] Revisa manualmente si quieres dejar de versionarlos: git rm -r --cached graphify-out/" >&2
+        fi
     fi
 }
 
