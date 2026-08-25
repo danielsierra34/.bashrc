@@ -11,6 +11,23 @@ Rules:
 - Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 
+## Graphify + Codex
+
+- WSL Debian is the execution environment for project tools.
+- If Codex is running from Windows or PowerShell, switch into WSL Debian before invoking Graphify.
+- Graphify is installed inside WSL Debian and should not be treated as a connector, plugin, or external integration.
+- Apply the same project integration flow for Codex and Claude when Graphify is available.
+- For codebase questions, consult Graphify first whenever `graphify-out/graph.json` exists.
+- Do not require the user to type `/graphify` or mention Graphify explicitly.
+- Prefer `graphify query "<question>"` first.
+- Use `graphify explain "<concept>"` for specific concepts.
+- Use `graphify path "<A>" "<B>"` for relationships.
+- If a query returns `No matching nodes found`, retry with more specific real file, class, function, or component names before abandoning Graphify.
+- Use `graphify-out/GRAPH_REPORT.md` for broad architectural analysis.
+- Use `graphify-out/wiki/index.md` if it exists for general navigation.
+- After modifying code, run `graphify update .`.
+- Graphify is the first pass for locating relevant codebase areas; Codex can then inspect the source files Graphify identified.
+
 <!-- BEGIN GRAPHIFY-CODEX CUSTOM -->
 
 ## Graphify + Codex
@@ -18,7 +35,7 @@ Rules:
 - WSL Debian is the execution environment for project tools.
 - If Codex is running from Windows or PowerShell, switch into WSL Debian before invoking Graphify.
 - Graphify is installed inside WSL Debian and should not be treated as a connector, plugin, or external integration.
-- Apply the same project integration flow for Codex and Claude when Graphify is available.
+- Apply the same project integration flow for Codex, Claude, and Antigravity when Graphify is available.
 - For codebase questions, consult Graphify first whenever `graphify-out/graph.json` exists.
 - Do not require the user to type `/graphify` or mention Graphify explicitly.
 - Prefer `graphify query "<question>"` first.
