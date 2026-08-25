@@ -1,9 +1,9 @@
 # 217-graphify
 
-Integracion de Graphify con Codex y Claude en dos niveles distintos:
+Integracion de Graphify con Codex, Claude y Antigravity en dos niveles distintos:
 
-- **instalacion global**: la herramienta Graphify y sus skills globales de Codex/Claude en la shell de WSL Debian (`graphify_install`);
-- **preparacion por proyecto**: integracion local con `AGENTS.md`, `.codex/hooks.json`, `CLAUDE.md`, `.claude/settings.json` y actualizacion del grafo del repositorio (`graphify_run .`).
+- **instalacion global**: la herramienta Graphify y sus skills globales de Codex/Claude/Antigravity en la shell de WSL Debian (`graphify_install`);
+- **preparacion por proyecto**: integracion local con `AGENTS.md`, `.codex/hooks.json`, `CLAUDE.md`, `.claude/settings.json`, la config de Antigravity, y actualizacion del grafo del repositorio (`graphify_run .`).
 
 **Regla clave: Graphify workspace != raiz de Git.** `graphify_run <ruta>` resuelve `<ruta>` (por defecto `.`) a una ruta absoluta y la usa SIEMPRE como raiz del workspace de Graphify, sin importar si existe un `.git/` ahi, mas arriba, o en ningun lado. `git rev-parse --show-toplevel` nunca se usa para decidir donde escribir `AGENTS.md`/`CLAUDE.md`/`.codex/`/`.claude/`/`graphify-out/`/`.gitignore` - esto es intencional, no un descuido: si tu proyecto vive dentro de un repo Git mas grande (monorepo, subcarpeta de un repo superior), `graphify_run .` prepara *esa subcarpeta* como su propio workspace en vez de escribir en la raiz del repo superior. Esto es valido y funciona igual con o sin Git:
 
@@ -23,8 +23,9 @@ WSL Debian
 │
 ├── graphify_install
 │      ├── Graphify (uv tool)
-│      ├── Codex global skill   (graphify install --platform codex)
-│      └── Claude global skill  (graphify install --platform claude)
+│      ├── Codex global skill        (graphify install --platform codex)
+│      ├── Claude global skill       (graphify install --platform claude)
+│      └── Antigravity global skill  (graphify install --platform antigravity → ~/.gemini/config/skills/graphify/)
 │
 └── Proyecto (workspace = <ruta> pasada a graphify_run, con o sin Git)
        │
@@ -38,6 +39,10 @@ WSL Debian
               │      ├── CLAUDE.md
               │      └── .claude/settings.json
               │
+              ├── graphify antigravity install
+              │      ├── .agents/rules/graphify.md
+              │      └── .agents/workflows/graphify.md
+              │
               └── graphify update .
                      └── graphify-out/ (graph.json, graph.html, GRAPH_REPORT.md, cache, ...)
 ```
@@ -48,12 +53,12 @@ WSL Debian
 
 - `graphify_help`: resume los cuatro niveles de comando (`graphify_install`, `graphify_run .`, `graphify update .`, `graphify .`), las consultas (`query`/`explain`/`path`) y variables.
 - `graphify_check`: valida dependencias y binarios disponibles.
-- `graphify_install`: instala `uv` si hace falta, instala Graphify y configura la skill global de Codex y Claude con `graphify install --platform codex` y `graphify install --platform claude`. Es puramente global: no toca ningun proyecto ni depende del directorio actual.
-- `graphify_update`: actualiza la herramienta Graphify global y reaplica la skill global de Codex y Claude.
+- `graphify_install`: instala `uv` si hace falta, instala Graphify y configura la skill global de Codex, Claude y Antigravity con `graphify install --platform codex`, `graphify install --platform claude` y `graphify install --platform antigravity`. Es puramente global: no toca ningun proyecto ni depende del directorio actual.
+- `graphify_update`: actualiza la herramienta Graphify global y reaplica la skill global de Codex, Claude y Antigravity.
 - `graphify_uninstall`: elimina Graphify de `uv`.
-- `graphify_run [ruta|.]`: prepara el proyecto local (gitignore + Codex + Claude) y termina con `graphify update` para regenerar `graphify-out/graph.json` y el resto del grafo. No requiere API key.
+- `graphify_run [ruta|.]`: prepara el proyecto local (gitignore + Codex + Claude + Antigravity) y termina con `graphify update` para regenerar `graphify-out/graph.json` y el resto del grafo. No requiere API key.
 - `graphify_batch <ruta> [ruta ...]`: ejecuta `graphify_run` varias veces sobre distintas rutas.
-- `graphify_workspace <ruta> [nombre]`: crea un workspace nuevo, escribe `README.md` y `.gitignore`, y deja preparado el proyecto para Codex + Claude + Graphify.
+- `graphify_workspace <ruta> [nombre]`: crea un workspace nuevo, escribe `README.md` y `.gitignore`, y deja preparado el proyecto para Codex + Claude + Antigravity + Graphify.
 - `graphify_report_open [ruta]`: abre el reporte de texto mas reciente (Markdown/JSON/etc.) con `$EDITOR`, `less` o `cat`.
 - `graphify_graph_open [ruta]`: abre `graphify-out/graph.html` en el navegador. Prueba, en orden, `wslview`, `explorer.exe` (via `wslpath`), `xdg-open` y `$BROWSER`.
 - `graphify_scan_gitignore [ruta]`: agrega exclusiones de Graphify a `.gitignore` (incluyendo obligatoriamente `graphify-out/`) y advierte si ya hay archivos de `graphify-out/` versionados en Git.
@@ -61,7 +66,7 @@ WSL Debian
 
 ## Funciones internas
 
-- `_graphify_setup_project`: recibe el directorio ya resuelto por el llamador (`graphify_run` o `graphify_workspace`), se posiciona en el con `cd` y usa `pwd -P` (nunca Git) para fijar `root_dir`; ejecuta `graphify codex install` y `graphify claude install` ahi (son idempotentes por si mismos), avisando y continuando con la otra integracion si una falla; luego complementa `AGENTS.md` con el bloque administrado por este modulo.
+- `_graphify_setup_project`: recibe el directorio ya resuelto por el llamador (`graphify_run` o `graphify_workspace`), se posiciona en el con `cd` y usa `pwd -P` (nunca Git) para fijar `root_dir`; ejecuta `graphify codex install`, `graphify claude install` y `graphify antigravity install` ahi (son idempotentes por si mismos), avisando y continuando con las demas integraciones si alguna falla; luego complementa `AGENTS.md` con el bloque administrado por este modulo.
 - `_graphify_upsert_agents_block`: inserta o reemplaza el bloque administrado por este modulo sin duplicar contenido ni acumular lineas en blanco en ejecuciones repetidas.
 - `_graphify_agents_custom_block`: genera el bloque de instrucciones personalizado para Codex.
 - `_graphify_workspace_root`: resuelve la raiz Git del proyecto o usa el directorio actual. Se mantiene para las funciones de solo lectura (`graphify_report_open`, `graphify_graph_open`, `graphify_codex_note`), pero `graphify_run` **ya no la usa** para decidir su workspace - ese fue el bug original (`graphify_run .` terminaba escribiendo en un repo Git superior en vez de la carpeta actual).
@@ -79,7 +84,7 @@ WSL Debian
 
 1. `graphify_install` deja Graphify disponible en toda la shell de WSL Debian.
 2. `graphify_update` mantiene esa instalacion global.
-3. Esa capa global ejecuta `graphify install --platform codex` y `graphify install --platform claude`.
+3. Esa capa global ejecuta `graphify install --platform codex`, `graphify install --platform claude` y `graphify install --platform antigravity`.
 
 ## Flujo por proyecto
 
@@ -87,10 +92,10 @@ WSL Debian
 2. `graphify_run <ruta|.>` hace lo mismo para repositorios nuevos o existentes, cada vez que se ejecuta:
    0. Resuelve `<ruta>` (por defecto `.`) a una ruta absoluta/canonica con `cd "<ruta>" && pwd -P` - ese directorio, y solo ese, es el workspace para el resto del flujo. Nunca se sube a una raiz de Git superior.
    1. `graphify_scan_gitignore` asegura `graphify-out/` (y el resto de exclusiones) en `.gitignore` dentro de ese workspace, y advierte si ya hay archivos de `graphify-out/` versionados.
-   2. `_graphify_setup_project` ejecuta `graphify codex install` y `graphify claude install` con ese workspace como directorio de trabajo (`root_dir="$(pwd -P)"`, no `git rev-parse --show-toplevel`). Si una falla, avisa y continua con la otra.
-   3. La misma funcion complementa `AGENTS.md` con instrucciones para WSL Debian, Codex y Graphify.
+   2. `_graphify_setup_project` ejecuta `graphify codex install`, `graphify claude install` y `graphify antigravity install` con ese workspace como directorio de trabajo (`root_dir="$(pwd -P)"`, no `git rev-parse --show-toplevel`). Si una falla, avisa y continua con las demas.
+   3. La misma funcion complementa `AGENTS.md` con instrucciones para WSL Debian, Codex, Claude, Antigravity y Graphify.
    4. `graphify_run` termina ejecutando `graphify update .` con el workspace como directorio de trabajo, para refrescar el knowledge graph (sin API).
-3. Nada de esto depende de que `codex` o `claude` esten instalados como CLI: `graphify codex install` / `graphify claude install` solo requieren el binario `graphify`.
+3. Nada de esto depende de que `codex` o `claude` esten instalados como CLI: `graphify codex install` / `graphify claude install` / `graphify antigravity install` solo requieren el binario `graphify`.
 4. Nada de esto depende de Git: un workspace sin `.git/`, dentro de un repo superior, o con su propio `.git/` se comportan igual - el workspace siempre es la ruta pedida.
 
 ## Comandos que ejecutan
@@ -99,16 +104,21 @@ WSL Debian
   - se usa en `graphify_install` y `graphify_update` para la skill global.
 - `graphify install --platform claude`
   - se usa en `graphify_install` y `graphify_update` para la skill global.
+- `graphify install --platform antigravity`
+  - se usa en `graphify_install` y `graphify_update` para la skill global (escribe en `~/.gemini/config/skills/graphify/`; Antigravity guarda su config bajo `~/.gemini`).
 - `graphify codex install`
   - se usa en `_graphify_setup_project` para la integracion local por proyecto (AGENTS.md + .codex/hooks.json). Se ejecuta en cada llamada; el propio comando es idempotente.
 - `graphify claude install`
   - se usa en `_graphify_setup_project` para la integracion local por proyecto (CLAUDE.md + .claude/settings.json). Se ejecuta en cada llamada; el propio comando es idempotente.
+- `graphify antigravity install`
+  - se usa en `_graphify_setup_project` para la integracion local por proyecto (`.agents/rules/graphify.md` + `.agents/workflows/graphify.md`, ademas de reinstalar la skill global). Se ejecuta en cada llamada; el propio comando es idempotente (verificado: la segunda corrida reporta "no change" en ambos archivos).
+  - imprime una sugerencia manual para habilitar MCP (agregar un bloque `graphify` a `~/.gemini/antigravity/mcp_config.json`); este modulo no automatiza ese paso.
 - `graphify update .`
   - se usa en `graphify_run`, ejecutado con `cd` al workspace resuelto, para generar o refrescar `graphify-out/graph.json` sin usar ninguna API de LLM.
 - `graphify .` (extraccion completa, AST + semantica)
   - no la ejecuta ningun helper de este modulo; es manual y puede requerir una API key (Gemini/OpenAI/Anthropic/etc.) si el proyecto tiene documentacion, PDFs o imagenes.
 - `graphify query "<question>"`, `graphify explain "<concept>"`, `graphify path "<A>" "<B>"`
-  - no se ejecutan automaticamente desde Bash; son las consultas que Codex/Claude usan sobre `graphify-out/graph.json`, y las instrucciones escritas en `AGENTS.md`/`CLAUDE.md` (por `graphify codex install`/`graphify claude install`) les dicen cuando usarlas.
+  - no se ejecutan automaticamente desde Bash; son las consultas que Codex/Claude/Antigravity usan sobre `graphify-out/graph.json`, y las instrucciones escritas en `AGENTS.md`/`CLAUDE.md`/`.agents/rules/graphify.md` (por `graphify codex install`/`graphify claude install`/`graphify antigravity install`) les dicen cuando usarlas.
 
 ## AGENTS.md y Codex
 
@@ -127,7 +137,7 @@ El bloque administrado por este modulo deja claro que:
 
 ## Idempotencia
 
-- `graphify codex install` y `graphify claude install` no reescriben nada si el proyecto ya esta configurado (verificado contra Graphify 0.9.46); `_graphify_setup_project` los deja correr en cada `graphify_run` en vez de intentar detectar por su cuenta si "ya estan instalados".
+- `graphify codex install`, `graphify claude install` y `graphify antigravity install` no reescriben nada si el proyecto ya esta configurado (verificado contra Graphify 0.9.46); `_graphify_setup_project` los deja correr en cada `graphify_run` en vez de intentar detectar por su cuenta si "ya estan instalados".
 - El bloque de `AGENTS.md` esta delimitado por marcadores claros y se regenera (no se duplica) en cada llamada; el separador en blanco entre el contenido previo y el bloque tampoco se acumula entre ejecuciones.
 - Las instrucciones que Graphify escribe en `AGENTS.md`/`CLAUDE.md`, y las de otros agentes o herramientas, no se eliminan.
 - `graphify_scan_gitignore` agrega cada entrada (incluida `graphify-out/`) una sola vez; correrla varias veces no duplica lineas.
@@ -162,4 +172,4 @@ a proposito), no es un error: el modulo sigue funcionando sin el parche.
 
 - Esta configuracion no escribe `AGENTS.md` en `graphify_install` ni `graphify_update`; solo en la preparacion por proyecto.
 - No hay logica especial para connectors, plugins o PowerShell dentro de Bash; la instruccion de salto a WSL vive en `AGENTS.md`.
-- Ni `graphify codex install` ni `graphify claude install` requieren que los CLI `codex` o `claude` esten instalados: preparan la configuracion del proyecto independientemente de que el asistente este abierto en ese momento.
+- Ni `graphify codex install`, ni `graphify claude install`, ni `graphify antigravity install` requieren que los CLI `codex`, `claude` o Antigravity esten instalados: preparan la configuracion del proyecto independientemente de que el asistente este abierto en ese momento.

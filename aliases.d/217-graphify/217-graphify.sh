@@ -22,7 +22,7 @@ _graphify_workspace_root() {
 }
 
 _graphify_platforms() {
-    printf '%s\n' codex claude
+    printf '%s\n' codex claude antigravity
 }
 
 # Reapplies the local, un-upstreamed generic-textual-fallback patch
@@ -74,7 +74,7 @@ _graphify_agents_custom_block() {
 - WSL Debian is the execution environment for project tools.
 - If Codex is running from Windows or PowerShell, switch into WSL Debian before invoking Graphify.
 - Graphify is installed inside WSL Debian and should not be treated as a connector, plugin, or external integration.
-- Apply the same project integration flow for Codex and Claude when Graphify is available.
+- Apply the same project integration flow for Codex, Claude, and Antigravity when Graphify is available.
 - For codebase questions, consult Graphify first whenever `graphify-out/graph.json` exists.
 - Do not require the user to type `/graphify` or mention Graphify explicitly.
 - Prefer `graphify query "<question>"` first.
@@ -148,16 +148,22 @@ _graphify_setup_project() {
         return 1
     fi
 
-    # `graphify codex install` / `graphify claude install` son idempotentes por si
-    # mismos (no reescriben si ya estan configurados), asi que se dejan correr
-    # siempre y se delega en ellos la gestion de sus propios archivos.
+    # `graphify codex install` / `graphify claude install` / `graphify antigravity
+    # install` son idempotentes por si mismos (no reescriben si ya estan
+    # configurados), asi que se dejan correr siempre y se delega en ellos la
+    # gestion de sus propios archivos.
     if ! ( cd "$root_dir" && graphify codex install ); then
-        echo "[warn] 'graphify codex install' fallo en $root_dir; se continua con la integracion de Claude." >&2
+        echo "[warn] 'graphify codex install' fallo en $root_dir; se continua con la integracion de Claude y Antigravity." >&2
         rc=1
     fi
 
     if ! ( cd "$root_dir" && graphify claude install ); then
-        echo "[warn] 'graphify claude install' fallo en $root_dir." >&2
+        echo "[warn] 'graphify claude install' fallo en $root_dir; se continua con la integracion de Antigravity." >&2
+        rc=1
+    fi
+
+    if ! ( cd "$root_dir" && graphify antigravity install ); then
+        echo "[warn] 'graphify antigravity install' fallo en $root_dir." >&2
         rc=1
     fi
 
@@ -185,11 +191,13 @@ graphify_codex_note [mensaje]
 Niveles de comandos:
 - graphify_install
     Instalacion GLOBAL en esta shell de WSL Debian: Python/uv/Graphify y la
-    skill global de Codex y Claude. No toca ningun proyecto especifico.
+    skill global de Codex, Claude y Antigravity. No toca ningun proyecto
+    especifico.
 - graphify_run .
     Preparacion LOCAL de un proyecto: agrega graphify-out/ a .gitignore,
-    ejecuta `graphify codex install` y `graphify claude install` (AGENTS.md,
-    .codex/hooks.json, CLAUDE.md, .claude/settings.json) y termina con
+    ejecuta `graphify codex install`, `graphify claude install` y
+    `graphify antigravity install` (AGENTS.md, .codex/hooks.json, CLAUDE.md,
+    .claude/settings.json, config de Antigravity) y termina con
     `graphify update .`. Es el comando normal dentro de cualquier repo.
 - graphify update .
     Solo actualiza el grafo AST/local (graphify-out/) sin usar ninguna API de
@@ -314,8 +322,8 @@ graphify_install() {
     "$graphify_bin" --version 2>/dev/null || "$graphify_bin" --help | head -n 1
 
     echo ""
-    echo "Configurando integracion con Codex y Claude..."
-    _graphify_install_platforms codex claude
+    echo "Configurando integracion con Codex, Claude y Antigravity..."
+    _graphify_install_platforms codex claude antigravity
 
     _graphify_reapply_local_patch
 
@@ -324,7 +332,7 @@ graphify_install() {
     echo " Instalacion completada"
     echo "======================================"
     echo ""
-    echo "Esta instalacion es global (Graphify + skills de Codex y Claude)."
+    echo "Esta instalacion es global (Graphify + skills de Codex, Claude y Antigravity)."
     echo "No prepara ningun proyecto todavia."
     echo ""
     echo "Para preparar un proyecto (Codex + Claude + grafo local, sin API):"
@@ -357,7 +365,7 @@ graphify_update() {
         return 1
     fi
 
-    _graphify_install_platforms codex claude
+    _graphify_install_platforms codex claude antigravity
 
     _graphify_reapply_local_patch
 
@@ -418,7 +426,7 @@ graphify_run() {
     fi
 
     # cada paso avisa si falla pero no bloquea los siguientes: el .gitignore,
-    # la integracion de Codex/Claude y la actualizacion del grafo son
+    # la integracion de Codex/Claude/Antigravity y la actualizacion del grafo son
     # independientes entre si.
     graphify_scan_gitignore "$prep_target" || rc=1
     _graphify_setup_project "$prep_target" || rc=1
@@ -490,7 +498,7 @@ EOF
             echo "Graphify no pudo completar toda la integracion local; el workspace ya quedo creado."
         fi
     else
-        echo "Graphify no esta disponible; se creo el workspace pero no la integracion local con Codex/Claude."
+        echo "Graphify no esta disponible; se creo el workspace pero no la integracion local con Codex/Claude/Antigravity."
     fi
 
     printf '%s\n' "$PWD"
