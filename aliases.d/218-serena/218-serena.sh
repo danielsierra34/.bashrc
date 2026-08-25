@@ -109,7 +109,12 @@ Niveles de comandos:
         "activate the current project" en el primer chat de cada proyecto,
         porque Antigravity no pasa el working directory en su config MCP)
     Cada cliente falla o se omite de forma independiente si su CLI no esta
-    disponible. No toca ningun proyecto especifico.
+    disponible. Pensado como paso GLOBAL, pero ojo: `serena init` puede
+    detectar por su cuenta que el cwd desde donde se corre es un proyecto
+    real y auto-registrarlo (crear .serena/project.yml ahi) como efecto
+    secundario - visto en la practica corriendo serena_install parado en un
+    repo con codigo fuente real. Si no quieres eso, corre serena_install
+    desde $HOME o un directorio sin codigo, no desde dentro de un proyecto.
 - serena_run .
     Preparacion LOCAL de un proyecto: ejecuta `serena project index .`, que
     crea .serena/project.yml si no existe (detectando lenguajes) e indexa
