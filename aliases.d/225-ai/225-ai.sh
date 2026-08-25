@@ -39,28 +39,106 @@ _AI_INSTALL_FUNCS=(
 
 ai_help() {
     cat <<'EOF'
-AI helpers (umbrella sobre los 8 modulos de herramientas de IA)
+AI helpers - mapa de las 8 herramientas de IA de este repo
 
-ai_install
-ai_init [ruta|.]
+=== Puesta en marcha ===
 
-- ai_install
-    Corre, en orden, el *_install de los 8 modulos (graphify, serena,
-    context7, playwright, pptxgenjs, infographic-skill, python-docx,
-    pymupdf). Cada uno se ejecuta aunque el anterior haya fallado (mismo
-    criterio que cada modulo individual: avisa y continua). Termina con un
-    resumen OK/FAIL por herramienta.
-- ai_init [ruta|.]
-    Prepara UN proyecto localmente. Solo toca graphify_run y serena_run -
-    son los unicos 2 de los 8 que generan estado persistente por proyecto
-    (graphify-out/, .serena/). Los otros 6 son globales por naturaleza (ver
-    el comentario al inicio de este archivo) y no se tocan aqui para no
-    disparar llamadas de red o abrir un browser real como efecto secundario
-    de "inicializar un proyecto".
+  ai_install            instala las 8 herramientas, globalmente, una vez
+  ai_init [ruta|.]       prepara UN proyecto (solo graphify + serena, ver abajo)
 
-Typical flow:
-1. ai_install                        (una vez, deja todo listo globalmente)
-2. cd /ruta/del/proyecto && ai_init .   (por cada proyecto)
+  Flujo tipico:
+    1. ai_install
+    2. cd /ruta/del/proyecto && ai_init .
+
+=== Como se USAN una vez instaladas (la parte que importa) ===
+
+Hay 3 formas distintas de "usar" estas herramientas - no todas se invocan
+igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
+(prueba que funciona), no la forma real de usar la herramienta dia a dia:
+
+  A) MCP (graphify, serena, context7, playwright): una vez registrados, el
+     AGENTE (Claude Code/Codex/Antigravity) los llama solo, cuando el pedido
+     del usuario calza. Vos no tipeas comandos MCP a mano - le pedis la tarea
+     en lenguaje natural y el agente decide usar la herramienta.
+  B) Skill (infographic-skill): igual que MCP, se activa sola cuando el
+     agente reconoce el pedido (ver su descripcion en skill/SKILL.md).
+  C) Librerias puras (pptxgenjs, python-docx, pymupdf): no se "activan"
+     solas - le pedis al agente que escriba y corra un script que las use
+     (import docx / require('pptxgenjs') / import pymupdf). Estan
+     disponibles sin setup extra por NODE_PATH/PYTHONPATH ya exportados.
+
+=== Las 8, una por una ===
+
+--- graphify (217) --- MCP + skill --- mapa/arquitectura del codebase
+  Que hace: grafo de comunidades, god nodes, relaciones cross-file.
+  Como se activa: automatico, el agente corre `graphify query "..."` antes
+    de explorar codigo a ciegas (regla ya en CLAUDE.md de este repo).
+  Gestion: graphify_check / graphify_install / graphify_run [ruta|.] /
+    graphify_update / graphify_uninstall
+  Detalle completo: graphify_help
+
+--- serena (218) --- MCP --- navegacion semantica via LSP
+  Que hace: ir a definicion, encontrar referencias reales, refactor seguro
+    a nivel de simbolo (no texto).
+  Como se activa: automatico una vez registrado; en Antigravity hay que
+    pedir "activate the current project" en el primer chat de cada proyecto.
+  Gestion: serena_check / serena_install / serena_run [ruta|.] /
+    serena_update / serena_uninstall / serena_mcp_status
+  Detalle completo: serena_help
+
+--- context7 (219) --- MCP remoto --- documentacion de librerias al dia
+  Que hace: resuelve una libreria (resolve-library-id) y trae su doc
+    version-especifica (get-library-docs) - evita que el agente alucine
+    APIs viejas.
+  Como se activa: automatico; el agente lo usa cuando escribe codigo contra
+    una libreria externa.
+  Gestion: context7_check / context7_install / context7_run [ruta|.] [query]
+    (smoke test, no indexa nada) / context7_update / context7_uninstall
+  Detalle completo: context7_help
+
+--- playwright (220) --- MCP local --- control de browser real
+  Que hace: navegar, click, llenar formularios, capturas de pantalla -
+    sobre un browser real, no simulado.
+  Como se activa: automatico; el agente lo usa para probar UIs o scrapear.
+  Gestion: playwright_check / playwright_install / playwright_run [url]
+    (smoke test) / playwright_update / playwright_uninstall
+  Detalle completo: playwright_help
+
+--- infographic-skill (222) --- Skill --- diseno de infografias
+  Que hace: composicion, jerarquia visual, anti-patrones de infografias
+    "hechas por IA sin cuidado".
+  Como se activa: automatico cuando pedis un one-pager/infografia/resumen
+    visual - sin decir la palabra "infografia" necesariamente.
+  Gestion: infographic_skill_check / infographic_skill_install /
+    infographic_skill_update / infographic_skill_uninstall (sin _run)
+  Detalle completo: infographic_skill_help
+
+--- pptxgenjs (221) --- libreria Node --- generar .pptx (PowerPoint)
+  Como se usa: pedile al agente un script que haga
+    require('pptxgenjs') / new PptxGenJS() / slide.addText(...) / writeFile()
+  Gestion: pptxgenjs_check / pptxgenjs_install / pptxgenjs_run (smoke test) /
+    pptxgenjs_update / pptxgenjs_uninstall
+  Detalle completo: pptxgenjs_help
+
+--- python-docx (223) --- libreria Python --- generar/editar .docx (Word)
+  Como se usa: pedile al agente un script que haga
+    from docx import Document / doc.add_heading(...) / doc.save(...)
+  Gestion: pythondocx_check / pythondocx_install / pythondocx_run (smoke
+    test) / pythondocx_update / pythondocx_uninstall
+  Detalle completo: pythondocx_help
+
+--- pymupdf (224) --- libreria Python --- leer/renderizar/generar PDF
+  Como se usa: pedile al agente un script que haga
+    import pymupdf / doc = pymupdf.open(...) / page.get_text() /
+    page.get_pixmap(...)
+  Gestion: pymupdf_check / pymupdf_install / pymupdf_run (smoke test) /
+    pymupdf_update / pymupdf_uninstall
+  Detalle completo: pymupdf_help
+
+=== Diagnostico rapido ===
+
+  Para revisar el estado de una sola herramienta: <nombre>_check
+  Ejemplo: serena_check, context7_check, pymupdf_check ...
 EOF
 }
 
