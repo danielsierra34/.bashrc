@@ -24,6 +24,7 @@ Coleccion modular de alias y funciones para tu terminal Bash. Cada grupo vive en
 - `aliases.d/200-npm/`: helpers para npm/npx (listar, instalar o desinstalar paquetes).
 - `aliases.d/210-git/`: comandos rapidos para definir `user.name` y `user.email`.
 - `aliases.d/300-docker/`: gestion de redes, contenedores, imagenes y limpiezas de Docker.
+- `aliases.d/230-dev-server/`: helpers para iniciar backend y frontend en un puerto dado.
 - `aliases.d/400-ghost/`: scripts especificos para Ghost + pipelines de pruebas end-to-end.
 - `aliases.d/410-kraken/`: instalacion y ejecucion de `kraken-node` y Chromedriver.
 - `aliases.d/500-cypress/`: instalacion y ejecucion de suites Cypress (headed/headless).
