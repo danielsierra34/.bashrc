@@ -213,6 +213,12 @@ comfyui_install() {
     echo ""
     if command -v claude >/dev/null 2>&1; then
         echo "Registrando Comfy Cloud como servidor MCP para Claude Code..."
+        # `claude mcp add` no actualiza un servidor que ya existe (falla con
+        # "already exists" en vez de sobreescribir headers/URL) - verificado
+        # probando esto en la practica: reinstalar con una API key nueva no
+        # aplicaba el header hasta remover primero. Remocion silenciosa si no
+        # existia (no es un error real, es el caso normal en un install limpio).
+        claude mcp remove comfy-cloud -s user >/dev/null 2>&1
         if [ -n "${COMFY_API_KEY:-}" ]; then
             claude mcp add --scope user --transport http comfy-cloud "$url" -H "X-API-Key: ${COMFY_API_KEY}" \
                 || echo "[warn] 'claude mcp add comfy-cloud' fallo; revisa 'claude mcp list' manualmente." >&2
@@ -228,6 +234,9 @@ comfyui_install() {
     echo ""
     if command -v codex >/dev/null 2>&1; then
         echo "Registrando Comfy Cloud como servidor MCP para Codex..."
+        # Mismo criterio que Claude Code: remover primero para que un
+        # re-registro (p.ej. tras agregar la API key) realmente aplique.
+        codex mcp remove comfy-cloud >/dev/null 2>&1
         codex mcp add comfy-cloud --url "$url" \
             || echo "[warn] 'codex mcp add comfy-cloud' fallo; revisa la config de Codex manualmente." >&2
         echo "[nota] Autentica con: codex mcp login comfy-cloud"
