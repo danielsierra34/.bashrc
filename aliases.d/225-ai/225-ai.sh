@@ -1,19 +1,24 @@
 ########################################################################################## AI (umbrella)
 
-# Comandos "todo en uno" sobre los 8 modulos de herramientas de IA de este
-# repo (217-graphify .. 224-pymupdf): uno para instalar TODO globalmente, y
-# otro para inicializar UN proyecto localmente.
+# Comandos "todo en uno" sobre los 9 modulos de herramientas de IA de este
+# repo (217-graphify .. 226-comfyui-mcp): uno para instalar TODO globalmente,
+# y otro para inicializar UN proyecto localmente.
 #
-# El split global/local no es simetrico entre los 8 - por diseno, no por
+# El split global/local no es simetrico entre los 9 - por diseno, no por
 # descuido:
 #   - graphify y serena SI generan estado persistente por proyecto
 #     (graphify-out/, .serena/) -> tienen un paso local real.
-#   - context7, playwright, pptxgenjs, python-docx, pymupdf son globales por
-#     naturaleza (MCP sin estado de proyecto, o librerias via NODE_PATH/
-#     PYTHONPATH) y sus *_run son smoke tests, no inicializacion - correrlos
-#     "por proyecto" pegaria llamadas de red / abriria un browser real sin
-#     que el usuario lo pidiera. Por eso ai_init NO los toca.
+#   - context7, playwright, pptxgenjs, python-docx, pymupdf, comfyui-mcp son
+#     globales por naturaleza (MCP sin estado de proyecto, o librerias via
+#     NODE_PATH/PYTHONPATH) y sus *_run son smoke tests, no inicializacion -
+#     correrlos "por proyecto" pegaria llamadas de red / abriria un browser
+#     real sin que el usuario lo pidiera. Por eso ai_init NO los toca.
 #   - infographic-skill es una Skill global; no tiene concepto de "proyecto".
+#
+# comfyui-mcp (226) es ademas el unico de los 9 sin instalacion local
+# posible: es 100% remoto (Comfy Cloud, sin GPU aqui) y requiere que EL
+# USUARIO complete OAuth o provea COMFY_API_KEY - ai_install lo registra
+# igual (queda en estado "needs authentication" hasta que lo hagas vos).
 #
 # Caveat real (visto probando esto en el propio repo bashrc): `serena_install`
 # esta pensado como paso global, pero `serena init` puede detectar por su
@@ -35,15 +40,16 @@ _AI_INSTALL_FUNCS=(
     infographic_skill_install
     pythondocx_install
     pymupdf_install
+    comfyui_install
 )
 
 ai_help() {
     cat <<'EOF'
-AI helpers - mapa de las 8 herramientas de IA de este repo
+AI helpers - mapa de las 9 herramientas de IA de este repo
 
 === Puesta en marcha ===
 
-  ai_install            instala las 8 herramientas, globalmente, una vez
+  ai_install            instala las 9 herramientas, globalmente, una vez
   ai_init [ruta|.]       prepara UN proyecto (solo graphify + serena, ver abajo)
 
   Flujo tipico:
@@ -56,10 +62,12 @@ Hay 3 formas distintas de "usar" estas herramientas - no todas se invocan
 igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
 (prueba que funciona), no la forma real de usar la herramienta dia a dia:
 
-  A) MCP (graphify, serena, context7, playwright): una vez registrados, el
-     AGENTE (Claude Code/Codex/Antigravity) los llama solo, cuando el pedido
-     del usuario calza. Vos no tipeas comandos MCP a mano - le pedis la tarea
-     en lenguaje natural y el agente decide usar la herramienta.
+  A) MCP (graphify, serena, context7, playwright, comfyui-mcp): una vez
+     registrados, el AGENTE (Claude Code/Codex/Antigravity) los llama solo,
+     cuando el pedido del usuario calza. Vos no tipeas comandos MCP a mano -
+     le pedis la tarea en lenguaje natural y el agente decide usar la
+     herramienta. Excepcion: comfyui-mcp ademas necesita que VOS completes
+     OAuth o le des tu COMFY_API_KEY antes de que funcione.
   B) Skill (infographic-skill): igual que MCP, se activa sola cuando el
      agente reconoce el pedido (ver su descripcion en skill/SKILL.md).
   C) Librerias puras (pptxgenjs, python-docx, pymupdf): no se "activan"
@@ -67,7 +75,7 @@ igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
      (import docx / require('pptxgenjs') / import pymupdf). Estan
      disponibles sin setup extra por NODE_PATH/PYTHONPATH ya exportados.
 
-=== Las 8, una por una ===
+=== Las 9, una por una ===
 
 --- graphify (217) --- MCP + skill --- mapa/arquitectura del codebase
   Que hace: grafo de comunidades, god nodes, relaciones cross-file.
@@ -134,6 +142,20 @@ igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
   Gestion: pymupdf_check / pymupdf_install / pymupdf_run (smoke test) /
     pymupdf_update / pymupdf_uninstall
   Detalle completo: pymupdf_help
+
+--- comfyui-mcp (226) --- MCP remoto --- generar imagen/video/audio (Comfy Cloud)
+  Que hace: busca modelos/templates/nodes y genera contenido corriendo
+    ComfyUI en la nube de comfy.org - sin GPU local (esta maquina no tiene
+    una dedicada).
+  Como se activa: automatico una vez autenticado. Requiere accion tuya
+    primero: OAuth interactivo (/mcp en Claude Code, `codex mcp login
+    comfy-cloud` en Codex) o exportar COMFY_API_KEY antes de instalar
+    (obligatorio para Antigravity, que no tiene OAuth interactivo aqui).
+    Busqueda es gratis con cuenta; generar necesita suscripcion o usa las
+    5 corridas gratis iniciales.
+  Gestion: comfyui_check / comfyui_install / comfyui_run (smoke test de
+    alcance, no de generacion) / comfyui_update / comfyui_uninstall
+  Detalle completo: comfyui_help
 
 === Diagnostico rapido ===
 
@@ -204,6 +226,7 @@ ai_init() {
     echo "  - python-docx        libreria global via PYTHONPATH"
     echo "  - pymupdf            libreria global via PYTHONPATH"
     echo "  - infographic-skill  skill global, no por-proyecto"
+    echo "  - comfyui-mcp        MCP remoto (Comfy Cloud) sin estado de proyecto"
 
     return "$rc"
 }
