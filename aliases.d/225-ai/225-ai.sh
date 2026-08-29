@@ -1,13 +1,15 @@
 ########################################################################################## AI (umbrella)
 
-# Comandos "todo en uno" sobre los 9 modulos de herramientas de IA de este
-# repo (217-graphify .. 226-comfyui-mcp): uno para instalar TODO globalmente,
+# Comandos "todo en uno" sobre los 10 modulos de herramientas de IA de este
+# repo (217-graphify .. 227-lightrag): uno para instalar TODO globalmente,
 # y otro para inicializar UN proyecto localmente.
 #
-# El split global/local no es simetrico entre los 9 - por diseno, no por
+# El split global/local no es simetrico entre los 10 - por diseno, no por
 # descuido:
 #   - graphify y serena SI generan estado persistente por proyecto
 #     (graphify-out/, .serena/) -> tienen un paso local real.
+#   - lightrag SI genera estado persistente por proyecto
+#     (inputs/, rag_storage/) -> tiene un paso local real para corpus de docs.
 #   - context7, playwright, pptxgenjs, python-docx, pymupdf, comfyui-mcp son
 #     globales por naturaleza (MCP sin estado de proyecto, o librerias via
 #     NODE_PATH/PYTHONPATH) y sus *_run son smoke tests, no inicializacion -
@@ -15,7 +17,7 @@
 #     real sin que el usuario lo pidiera. Por eso ai_init NO los toca.
 #   - infographic-skill es una Skill global; no tiene concepto de "proyecto".
 #
-# comfyui-mcp (226) es ademas el unico de los 9 sin instalacion local
+# comfyui-mcp (226) es ademas el unico de los 10 sin instalacion local
 # posible: es 100% remoto (Comfy Cloud, sin GPU aqui) y requiere que EL
 # USUARIO complete OAuth o provea COMFY_API_KEY - ai_install lo registra
 # igual (queda en estado "needs authentication" hasta que lo hagas vos).
@@ -29,7 +31,7 @@
 #
 # Este archivo no depende del orden de carga: para cuando el usuario LLAMA a
 # estas funciones (no cuando se cargan), el loader (aliases) ya sourceo los
-# 8 modulos completos sin importar en que orden aparezcan en aliases.d/.
+# 10 modulos completos sin importar en que orden aparezcan en aliases.d/.
 
 _AI_INSTALL_FUNCS=(
     graphify_install
@@ -41,16 +43,17 @@ _AI_INSTALL_FUNCS=(
     pythondocx_install
     pymupdf_install
     comfyui_install
+    lightrag_install
 )
 
 ai_help() {
     cat <<'EOF'
-AI helpers - mapa de las 9 herramientas de IA de este repo
+AI helpers - mapa de las 10 herramientas de IA de este repo
 
 === Puesta en marcha ===
 
-  ai_install            instala las 9 herramientas, globalmente, una vez
-  ai_init [ruta|.]       prepara UN proyecto (solo graphify + serena, ver abajo)
+  ai_install            instala las 10 herramientas, globalmente, una vez
+  ai_init [ruta|.]       prepara UN proyecto (graphify + serena + lightrag)
 
   Flujo tipico:
     1. ai_install
@@ -74,8 +77,10 @@ igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
      solas - le pedis al agente que escriba y corra un script que las use
      (import docx / require('pptxgenjs') / import pymupdf). Estan
      disponibles sin setup extra por NODE_PATH/PYTHONPATH ya exportados.
+  D) Corpus documental (lightrag): se prepara con workspace local y sirve
+     para apuntes, PDFs, manuales y consultas sobre documentos.
 
-=== Las 9, una por una ===
+=== Las 10, una por una ===
 
 --- graphify (217) --- MCP + skill --- mapa/arquitectura del codebase
   Que hace: grafo de comunidades, god nodes, relaciones cross-file.
@@ -157,6 +162,17 @@ igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
     alcance, no de generacion) / comfyui_update / comfyui_uninstall
   Detalle completo: comfyui_help
 
+--- lightrag (227) --- corpus documental + grafo + RAG ---
+  Que hace: indexa apuntes, PDFs y manuales para consultas semanticas con
+    conocimiento en grafo, WebUI y API.
+  Como se activa: manual; se prepara un workspace local con `lightrag_run`
+    o `lightrag_workspace`, se arranca con `lightrag_serve` y se consulta
+    con `lightrag_query` o la WebUI.
+  Gestion: lightrag_check / lightrag_install / lightrag_workspace /
+    lightrag_serve / lightrag_query / lightrag_status / lightrag_open /
+    lightrag_update / lightrag_uninstall / lightrag_refresh / lightrag_run
+  Detalle completo: lightrag_help
+
 === Diagnostico rapido ===
 
   Para revisar el estado de una sola herramienta: <nombre>_check
@@ -217,6 +233,12 @@ ai_init() {
     serena_run "$target" || rc=1
 
     echo ""
+    echo "------------------------------------------------------------------"
+    echo " -> lightrag_run"
+    echo "------------------------------------------------------------------"
+    lightrag_run "$target" || rc=1
+
+    echo ""
     echo "=================================================================="
     echo " Sin paso local (uso global, nada que inicializar por proyecto):"
     echo "=================================================================="
@@ -227,6 +249,7 @@ ai_init() {
     echo "  - pymupdf            libreria global via PYTHONPATH"
     echo "  - infographic-skill  skill global, no por-proyecto"
     echo "  - comfyui-mcp        MCP remoto (Comfy Cloud) sin estado de proyecto"
+    echo "  - lightrag           corpus documental local con workspace propio"
 
     return "$rc"
 }

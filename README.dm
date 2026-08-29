@@ -33,6 +33,8 @@ Coleccion modular de alias y funciones para tu terminal Bash. Cada grupo vive en
 - `aliases.d/850-codex/`: wrappers para `codex` con contexto local, historial y arranque de workspaces.
 - `aliases.d/216-codex-plugins/`: wrappers para marketplaces e instalacion de plugins de Codex.
 - `aliases.d/217-graphify/`: instalacion e integracion de Graphify con Codex.
+- `aliases.d/227-lightrag/`: corpus documental local con LightRAG y
+  preparacion de instrucciones para Codex, Claude y Antigravity.
 - `aliases.d/860-knowledge/`: scaffolding para bases de conocimiento versionables en Markdown.
 - `aliases.d/900-misc/`: alias miscelaneos (venv, Bitnami, recarga de bashrc).
 - `list_funcs.py`: script que imprime el inventario de funciones/alias detectados en cada modulo.
