@@ -5,7 +5,7 @@
 # apuntes, PDFs, manuales y notas, no para codebases.
 
 _lightrag_pkg() {
-    printf '%s' "${LIGHTRAG_UV_PACKAGE:-lightrag-hku[api]}"
+    printf '%s' "${LIGHTRAG_UV_PACKAGE:-lightrag-hku[api,offline-llm]}"
 }
 
 _lightrag_bin() {
@@ -152,9 +152,15 @@ LIGHTRAG_HOST=127.0.0.1
 LIGHTRAG_PORT=9621
 # LIGHTRAG_API_KEY=
 #
-# Configura aqui tu binding de LLM y embeddings segun el proveedor que uses.
-# Revisa `lightrag-server --help` y la documentacion oficial para las variables
-# exactas del backend que elijas (OpenAI, Ollama, Gemini, etc.).
+# Configuracion local recomendada con Ollama:
+# LLM_BINDING=ollama
+# LLM_BINDING_HOST=http://localhost:11434
+# LLM_MODEL=llama3.2:3b
+# EMBEDDING_BINDING=ollama
+# EMBEDDING_BINDING_HOST=http://localhost:11434
+# EMBEDDING_MODEL=bge-m3:latest
+#
+# Cambia estos valores si usas otro proveedor (OpenAI, Gemini, etc.).
 EOF
     fi
 
@@ -292,8 +298,8 @@ lightrag_install() {
         return 1
     fi
 
-    echo "Instalando LightRAG con uv tool: $pkg"
-    uv tool install "$pkg" || return 1
+    echo "Instalando LightRAG con soporte Ollama: $pkg"
+    uv tool install --force --with ollama "$pkg" || return 1
 
     echo ""
     echo "======================================"
@@ -319,8 +325,8 @@ lightrag_update() {
         return 1
     fi
 
-    echo "Actualizando LightRAG con uv tool upgrade: $pkg"
-    uv tool upgrade "$pkg"
+    echo "Actualizando LightRAG con soporte Ollama: $pkg"
+    uv tool install --force --with ollama "$pkg"
 }
 
 lightrag_uninstall() {

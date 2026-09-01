@@ -5,8 +5,9 @@ Herramientas para montar y usar LightRAG como corpus de estudio local.
 ## Funciones
 
 ### `lightrag_install`
-Instala LightRAG globalmente con `uv tool install`. La variante recomendada
-es `lightrag-hku[api]` porque trae el servidor, la WebUI y la API.
+Instala LightRAG globalmente con `uv tool` y soporte para Ollama. La variante
+por defecto es `lightrag-hku[api,offline-llm]`, que incluye el servidor, la
+WebUI, la API y los proveedores locales, incluido el paquete Python `ollama`.
 
 ### `lightrag_workspace <ruta> [workspace]`
 Prepara una carpeta como workspace de documentos y escribe las
@@ -55,7 +56,8 @@ pasos intermedios.
 
 ## Variables opcionales
 
-- `LIGHTRAG_UV_PACKAGE`: paquete a instalar con `uv` (default: `lightrag-hku[api]`)
+- `LIGHTRAG_UV_PACKAGE`: paquete a instalar con `uv` (default:
+  `lightrag-hku[api,offline-llm]`)
 - `LIGHTRAG_BIN`: binario CLI esperado en `PATH` (default: `lightrag-server`)
 - `LIGHTRAG_HOST`: host de escucha para `lightrag-server` (default: `127.0.0.1`)
 - `LIGHTRAG_PORT`: puerto por defecto (default: `9621`)
