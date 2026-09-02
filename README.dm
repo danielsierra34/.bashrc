@@ -30,6 +30,7 @@ Coleccion modular de alias y funciones para tu terminal Bash. Cada grupo vive en
 - `aliases.d/500-cypress/`: instalacion y ejecucion de suites Cypress (headed/headless).
 - `aliases.d/600-ollama/`: instalacion de Ollama, descarga guiada de modelos y creacion de Modelfiles personalizados.
 - `aliases.d/610-obsidian/`: instalacion y administracion global de Obsidian desde WSL/Linux.
+- `aliases.d/620-quarto/`: instalacion global y renderizado local de documentos y proyectos Quarto.
 - `aliases.d/700-arduino/`: asistente para Arduino CLI y conexion de placas USB desde WSL.
 - `aliases.d/850-codex/`: wrappers para `codex` con contexto local, historial y arranque de workspaces.
 - `aliases.d/216-codex-plugins/`: wrappers para marketplaces e instalacion de plugins de Codex.
