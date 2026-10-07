@@ -1,6 +1,6 @@
 ########################################################################################## AI (umbrella)
 
-# Comandos "todo en uno" sobre los 10 modulos de herramientas de IA de este
+# Comandos "todo en uno" sobre los 11 modulos de herramientas de IA de este
 # repo (217-graphify .. 227-lightrag): uno para instalar TODO globalmente,
 # y otro para inicializar UN proyecto localmente.
 #
@@ -44,15 +44,16 @@ _AI_INSTALL_FUNCS=(
     pymupdf_install
     comfyui_install
     lightrag_install
+    engram_install
 )
 
 ai_help() {
     cat <<'EOF'
-AI helpers - mapa de las 10 herramientas de IA de este repo
+AI helpers - mapa de las 11 herramientas de IA de este repo
 
 === Puesta en marcha ===
 
-  ai_install            instala las 10 herramientas, globalmente, una vez
+  ai_install            instala las 11 herramientas, globalmente, una vez
   ai_init [ruta|.]       prepara UN proyecto (graphify + serena + lightrag)
 
   Flujo tipico:
@@ -80,7 +81,7 @@ igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
   D) Corpus documental (lightrag): se prepara con workspace local y sirve
      para apuntes, PDFs, manuales y consultas sobre documentos.
 
-=== Las 10, una por una ===
+=== Las 11, una por una ===
 
 --- graphify (217) --- MCP + skill --- mapa/arquitectura del codebase
   Que hace: grafo de comunidades, god nodes, relaciones cross-file.
@@ -172,6 +173,15 @@ igual. Por eso `<algo>_run` en cada modulo es casi siempre un SMOKE TEST
     lightrag_serve / lightrag_query / lightrag_status / lightrag_open /
     lightrag_update / lightrag_uninstall / lightrag_refresh / lightrag_run
   Detalle completo: lightrag_help
+
+--- engram (630) --- memoria persistente para agentes ---
+  Que hace: guarda decisiones, descubrimientos y contexto entre sesiones.
+  Como se activa: una vez configurado, funciona mediante MCP en Codex,
+    Claude Code y Antigravity.
+  Gestion: engram_check / engram_install / engram_update /
+    engram_setup_all / engram_search / engram_tui / engram_stats /
+    engram_sync / engram_doctor / engram_uninstall
+  Detalle completo: engram_help
 
 === Diagnostico rapido ===
 
