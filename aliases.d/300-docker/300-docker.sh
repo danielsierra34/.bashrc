@@ -1,7 +1,7 @@
 ########################################################################################## DOCKER
 
 docker_restart(){
-  docker compose build --no-cache && docker compose up
+    docker compose up --build -d
 }
 
 docker_networks(){
